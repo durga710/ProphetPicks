@@ -1,0 +1,6 @@
+.DS_Store
+.superpowers/
+references/
+
+# Large local media/content from the shared workspace.
+videos/
