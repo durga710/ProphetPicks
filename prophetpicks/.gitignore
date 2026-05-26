@@ -28,3 +28,4 @@ src/data/generated/*.json
 *.njsproj
 *.sln
 *.sw?
+.vercel
