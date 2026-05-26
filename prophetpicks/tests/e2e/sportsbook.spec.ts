@@ -133,4 +133,64 @@ test.describe('ProphetPicks sportsbook', () => {
     await expect(page.getByRole('heading', { name: /Account Ledger/i })).toBeVisible()
     await expect(page.getByText(/Mock stake reserved/i)).toBeVisible()
   })
+
+  test('keeps visible controls interactive across filters and account screens', async ({
+    page,
+  }) => {
+    await page.goto('/')
+
+    await page.getByRole('button', { name: 'Group B', exact: true }).click()
+    await expect(
+      page.getByRole('button', {
+        name: /Open Juventus VS Bayern Munich market/i,
+      }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', {
+        name: /Open Arsenal VS FC Barcelona market/i,
+      }),
+    ).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Bets', exact: true }).click()
+    await page.getByLabel(/Search games/i).fill('Roma')
+    await expect(
+      page.getByRole('button', { name: /Open Roma VS Real Madrid market/i }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', {
+        name: /Open Juventus VS Bayern Munich market/i,
+      }),
+    ).toHaveCount(0)
+
+    await page.getByRole('button', { name: /Open account menu/i }).click()
+    const accountMenu = page.getByRole('dialog', { name: /Account Menu/i })
+    await expect(accountMenu).toBeVisible()
+    await expect(accountMenu.getByText(/Mock bankroll/i)).toBeVisible()
+    await accountMenu.getByRole('button', { name: /Close account menu/i }).click()
+
+    await page.getByRole('button', { name: /My Account/i }).click()
+    await expect(page.getByRole('heading', { name: /Account Overview/i })).toBeVisible()
+
+    await page.getByRole('button', { name: /Today's Matches/i }).click()
+    await expect(page.getByRole('heading', { name: /Today's Matches/i })).toBeVisible()
+
+    await page.getByRole('button', { name: /Teams/i }).click()
+    await page.getByLabel(/Search teams/i).fill('Lakers')
+    await expect(page.getByText(/Los Angeles Lakers/i)).toBeVisible()
+    await expect(page.getByText(/Kansas City Chiefs/i)).toHaveCount(0)
+
+    await page.getByRole('button', { name: /My Bets/i }).click()
+    await page.getByLabel(/Type/i).selectOption('simple')
+    await expect(page.getByText(/Roma VS Real Madrid/i)).toBeVisible()
+    await expect(page.getByText(/Arsenal VS FC Barcelona/i)).toHaveCount(0)
+    await page.getByLabel(/Search bets/i).fill('Bayern')
+    await expect(page.getByText(/Juventus VS Bayern Munich/i)).toBeVisible()
+    await expect(page.getByText(/Roma VS Real Madrid/i)).toHaveCount(0)
+
+    await page.getByRole('button', { name: /Financial/i }).click()
+    await page.getByRole('button', { name: /Ledger/i }).click()
+    await page.getByLabel(/Search Account Ledger/i).fill('settlement')
+    await expect(page.getByText(/Mock bet settlement/i)).toBeVisible()
+    await expect(page.getByText(/Opening mock bankroll/i)).toHaveCount(0)
+  })
 })

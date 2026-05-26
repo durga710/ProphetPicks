@@ -34,8 +34,9 @@ import {
   type SportKey,
 } from '../data/legacyBetfair'
 
-type Screen = 'events' | 'market' | 'bets' | 'finance' | 'teams'
+type Screen = 'account' | 'events' | 'market' | 'bets' | 'finance' | 'teams' | 'today'
 type FinanceTab = 'deposits' | 'withdrawals' | 'ledger'
+type BetTypeFilter = 'all' | 'simple' | 'combined'
 
 function eventName(event: LegacyEvent): string {
   return `${event.home} VS ${event.away}`
@@ -47,6 +48,16 @@ function formatDecimal(odds: number): string {
 
 function combinedPrice(items: LegacySlipItem[]): number {
   return items.reduce((total, item) => total * item.selection.odds, 1)
+}
+
+function matchesSearch(searchText: string, query: string): boolean {
+  const normalizedQuery = query.trim().toLowerCase()
+
+  if (!normalizedQuery) {
+    return true
+  }
+
+  return searchText.toLowerCase().includes(normalizedQuery)
 }
 
 function financeRowsTitle(tab: FinanceTab): string {
@@ -74,6 +85,7 @@ export function LegacyBetfairApp() {
   const [financeTab, setFinanceTab] = useState<FinanceTab>('deposits')
   const [mockBets, setMockBets] = useState<LegacyBet[]>([])
   const [mockLedgerRows, setMockLedgerRows] = useState<LedgerRow[]>([])
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
 
   const activeEvents = useMemo(() => getEventsForSport(activeSport), [activeSport])
   const activeSportDefinition = getSport(activeSport)
@@ -87,6 +99,13 @@ export function LegacyBetfairApp() {
     [activeEvents],
   )
 
+  function navigate(nextScreen: Screen): void {
+    setScreen(nextScreen)
+    setCatalogEvent(null)
+    setIsAccountMenuOpen(false)
+    setStatus('')
+  }
+
   function changeSport(nextSport: SportKey): void {
     const nextEvents = getEventsForSport(nextSport)
     const nextEvent = nextEvents[0]
@@ -94,6 +113,7 @@ export function LegacyBetfairApp() {
     setActiveSport(nextSport)
     setScreen('events')
     setCatalogEvent(null)
+    setIsAccountMenuOpen(false)
     setStatus('')
 
     if (nextEvent) {
@@ -178,6 +198,8 @@ export function LegacyBetfairApp() {
             className="legacy-menu-button"
             type="button"
             aria-label="Open account menu"
+            aria-expanded={isAccountMenuOpen}
+            onClick={() => setIsAccountMenuOpen((open) => !open)}
           >
             <Menu size={22} aria-hidden="true" />
           </button>
@@ -199,9 +221,9 @@ export function LegacyBetfairApp() {
 
         <nav className="legacy-nav" aria-label="Imported betting navigation">
           <button
-            className={screen === 'events' ? 'active' : ''}
+            className={screen === 'account' ? 'active' : ''}
             type="button"
-            onClick={() => setScreen('events')}
+            onClick={() => navigate('account')}
           >
             <UserRound size={16} aria-hidden="true" />
             My Account
@@ -209,24 +231,32 @@ export function LegacyBetfairApp() {
           <button
             className={screen === 'bets' ? 'active' : ''}
             type="button"
-            onClick={() => setScreen('bets')}
+            onClick={() => navigate('bets')}
           >
             <ClipboardList size={16} aria-hidden="true" />
             My Bets
           </button>
-          <button type="button" onClick={() => setScreen('events')}>
+          <button
+            className={screen === 'events' ? 'active' : ''}
+            type="button"
+            onClick={() => navigate('events')}
+          >
             <Trophy size={16} aria-hidden="true" />
             Competitions & Leagues
           </button>
           <button
             className={screen === 'teams' ? 'active' : ''}
             type="button"
-            onClick={() => setScreen('teams')}
+            onClick={() => navigate('teams')}
           >
             <Trophy size={16} aria-hidden="true" />
             Teams
           </button>
-          <button type="button" onClick={() => setScreen('events')}>
+          <button
+            className={screen === 'today' ? 'active' : ''}
+            type="button"
+            onClick={() => navigate('today')}
+          >
             <CalendarDays size={16} aria-hidden="true" />
             Today's Matches
           </button>
@@ -235,7 +265,7 @@ export function LegacyBetfairApp() {
             type="button"
             onClick={() => {
               setFinanceTab('deposits')
-              setScreen('finance')
+              navigate('finance')
             }}
           >
             <WalletCards size={16} aria-hidden="true" />
@@ -245,15 +275,33 @@ export function LegacyBetfairApp() {
       </header>
 
       <main className="legacy-main">
-        {screen !== 'finance' && screen !== 'bets' && (
+        {screen !== 'finance' && screen !== 'bets' && screen !== 'account' && (
           <SportRail activeSport={activeSport} onChangeSport={changeSport} />
         )}
 
-        {screen === 'events' && (
+        {screen === 'account' && (
+          <AccountScreen
+            bets={[...mockBets, ...legacyBets]}
+            ledgerRows={[...mockLedgerRows, ...legacyLedger]}
+            onOpenLedger={() => {
+              setFinanceTab('ledger')
+              navigate('finance')
+            }}
+          />
+        )}
+
+        {(screen === 'events' || screen === 'today') && (
           <EventsScreen
             sport={activeSportDefinition}
             groupedEvents={groupedEvents}
             groups={activeSportDefinition.groups}
+            title={screen === 'today' ? "Today's Matches" : activeSportDefinition.title}
+            eyebrow={screen === 'today' ? 'Daily board' : 'Dense Sportsbook Board'}
+            emptyMessage={
+              screen === 'today'
+                ? 'No matches match the current filters. Try another sport or clear search.'
+                : 'No matches found for the current filters.'
+            }
             onOpenCatalog={openCatalog}
           />
         )}
@@ -277,6 +325,7 @@ export function LegacyBetfairApp() {
           <FinanceScreen
             activeTab={financeTab}
             ledgerRows={[...mockLedgerRows, ...legacyLedger]}
+            onAccountClick={() => navigate('account')}
             onTabChange={setFinanceTab}
           />
         )}
@@ -301,6 +350,21 @@ export function LegacyBetfairApp() {
           event={catalogEvent}
           onClose={() => setCatalogEvent(null)}
           onOpenMarket={openMarket}
+        />
+      )}
+
+      {isAccountMenuOpen && (
+        <AccountMenuDialog
+          onClose={() => setIsAccountMenuOpen(false)}
+          onOpenBets={() => navigate('bets')}
+          onOpenLedger={() => {
+            setFinanceTab('ledger')
+            navigate('finance')
+          }}
+          onOpenSlip={() => {
+            setIsSlipOpen(true)
+            setIsAccountMenuOpen(false)
+          }}
         />
       )}
 
@@ -356,29 +420,68 @@ function EventsScreen({
   sport,
   groupedEvents,
   groups,
+  title,
+  eyebrow,
+  emptyMessage,
   onOpenCatalog,
 }: {
   sport: ReturnType<typeof getSport>
   groupedEvents: Record<string, LegacyEvent[]>
   groups: string[]
+  title: string
+  eyebrow: string
+  emptyMessage: string
   onOpenCatalog: (event: LegacyEvent) => void
 }) {
   const [isLeagueOpen, setIsLeagueOpen] = useState(true)
-  const eventCount = Object.values(groupedEvents).reduce(
-    (count, events) => count + events.length,
-    0,
+  const [activeGroup, setActiveGroup] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const visibleEvents = useMemo(
+    () =>
+      Object.values(groupedEvents)
+        .flat()
+        .filter((event) => {
+          const groupMatches = !activeGroup || event.group === activeGroup
+          const eventText = [
+            event.home,
+            event.away,
+            event.homeCode,
+            event.awayCode,
+            event.group,
+            event.league,
+            event.venue,
+            event.dateLabel,
+          ].join(' ')
+
+          return groupMatches && matchesSearch(eventText, searchQuery)
+        }),
+    [activeGroup, groupedEvents, searchQuery],
   )
+  const visibleGroupedEvents = useMemo(
+    () =>
+      visibleEvents.reduce<Record<string, LegacyEvent[]>>((eventGroups, event) => {
+        eventGroups[event.dateLabel] = [...(eventGroups[event.dateLabel] ?? []), event]
+        return eventGroups
+      }, {}),
+    [visibleEvents],
+  )
+  const eventCount = visibleEvents.length
 
   return (
     <section className="legacy-stage legacy-events" aria-labelledby="events-title">
       <div className="legacy-title-row">
         <div>
-          <p>Dense Sportsbook Board</p>
-          <h1 id="events-title">{sport.title}</h1>
+          <p>{eyebrow}</p>
+          <h1 id="events-title">{title}</h1>
         </div>
-        <div className="legacy-search" aria-label="Search games">
+        <div className="legacy-search">
           <Search size={16} aria-hidden="true" />
-          <input aria-label="Search games" placeholder="Search" />
+          <input
+            aria-label="Search games"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
         </div>
       </div>
 
@@ -398,11 +501,28 @@ function EventsScreen({
 
         <div className="legacy-group-strip compact" aria-label="Competition groups">
           {groups.map((group) => (
-            <button key={group} type="button">
+            <button
+              className={
+                activeGroup === group || (group === 'Bets' && activeGroup === null)
+                  ? 'active'
+                  : ''
+              }
+              key={group}
+              type="button"
+              onClick={() => setActiveGroup(group === 'Bets' ? null : group)}
+            >
               {group}
             </button>
           ))}
-          {!groups.includes('Bets') && <button type="button">Bets</button>}
+          {!groups.includes('Bets') && (
+            <button
+              className={activeGroup === null ? 'active' : ''}
+              type="button"
+              onClick={() => setActiveGroup(null)}
+            >
+              Bets
+            </button>
+          )}
         </div>
       </div>
 
@@ -414,7 +534,11 @@ function EventsScreen({
             <span>Markets</span>
           </div>
 
-          {Object.entries(groupedEvents).map(([date, events]) => (
+          {visibleEvents.length === 0 && (
+            <div className="legacy-empty">{emptyMessage}</div>
+          )}
+
+          {Object.entries(visibleGroupedEvents).map(([date, events]) => (
             <section className="legacy-date-card compact" key={date} aria-label={date}>
               <div className="legacy-date-heading">
                 <CalendarDays size={15} aria-hidden="true" />
@@ -603,7 +727,64 @@ function SelectionLabel({ event, label }: { event: LegacyEvent; label: string })
   return <strong>{label}</strong>
 }
 
+function AccountScreen({
+  bets,
+  ledgerRows,
+  onOpenLedger,
+}: {
+  bets: LegacyBet[]
+  ledgerRows: LedgerRow[]
+  onOpenLedger: () => void
+}) {
+  const pendingBets = bets.filter((bet) => bet.status.includes('Pending')).length
+  const lastBet = bets[0]
+
+  return (
+    <section className="legacy-stage" aria-labelledby="account-title">
+      <div className="legacy-table-header">
+        <div>
+          <p>Personal command center</p>
+          <h1 id="account-title">Account Overview</h1>
+        </div>
+        <button className="legacy-action-button" type="button" onClick={onOpenLedger}>
+          View Ledger
+        </button>
+      </div>
+      <div className="legacy-account-grid">
+        <article>
+          <span>Mock bankroll</span>
+          <strong>$20,000.00</strong>
+          <small>Personal simulator balance</small>
+        </article>
+        <article>
+          <span>Open mock bets</span>
+          <strong>{pendingBets}</strong>
+          <small>Pending tickets tracked locally</small>
+        </article>
+        <article>
+          <span>Last bet</span>
+          <strong>{lastBet?.market ?? 'No bets yet'}</strong>
+          <small>{lastBet?.match ?? 'Start with the board'}</small>
+        </article>
+        <article>
+          <span>Ledger rows</span>
+          <strong>{ledgerRows.length}</strong>
+          <small>Credits, stakes, and settlements</small>
+        </article>
+      </div>
+    </section>
+  )
+}
+
 function TeamsScreen({ teams }: { teams: LegacyTeam[] }) {
+  const [searchQuery, setSearchQuery] = useState('')
+  const visibleTeams = teams.filter((team) =>
+    matchesSearch(
+      [team.name, team.code, team.sportLabel, team.league].join(' '),
+      searchQuery,
+    ),
+  )
+
   return (
     <section className="legacy-stage" aria-labelledby="teams-title">
       <div className="legacy-table-header">
@@ -613,11 +794,19 @@ function TeamsScreen({ teams }: { teams: LegacyTeam[] }) {
         </div>
         <div className="legacy-search compact">
           <Search size={15} aria-hidden="true" />
-          <input aria-label="Search teams" placeholder="Search teams" />
+          <input
+            aria-label="Search teams"
+            placeholder="Search teams"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
         </div>
       </div>
       <div className="legacy-team-grid">
-        {teams.map((team) => (
+        {visibleTeams.length === 0 && (
+          <div className="legacy-empty">No teams found for that search.</div>
+        )}
+        {visibleTeams.map((team) => (
           <article className="legacy-team-card" key={team.id}>
             <TeamCrest
               label={team.name}
@@ -639,6 +828,24 @@ function TeamsScreen({ teams }: { teams: LegacyTeam[] }) {
 }
 
 function BetsScreen({ bets }: { bets: LegacyBet[] }) {
+  const [typeFilter, setTypeFilter] = useState<BetTypeFilter>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const visibleBets = bets.filter((bet) => {
+    const typeMatches = typeFilter === 'all' || bet.type.toLowerCase() === typeFilter
+    const betText = [
+      bet.match,
+      bet.market,
+      bet.type,
+      bet.stake,
+      bet.price,
+      bet.profitLoss,
+      bet.status,
+      bet.date,
+    ].join(' ')
+
+    return typeMatches && matchesSearch(betText, searchQuery)
+  })
+
   return (
     <section className="legacy-stage" aria-labelledby="bets-title">
       <div className="legacy-table-header">
@@ -648,7 +855,10 @@ function BetsScreen({ bets }: { bets: LegacyBet[] }) {
         </div>
         <label>
           Type
-          <select defaultValue="all">
+          <select
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value as BetTypeFilter)}
+          >
             <option value="all">All</option>
             <option value="simple">Simple</option>
             <option value="combined">Combined</option>
@@ -656,10 +866,15 @@ function BetsScreen({ bets }: { bets: LegacyBet[] }) {
         </label>
       </div>
       <div className="legacy-table-tools">
-        <span>Show 10 entries</span>
+        <span>Showing {visibleBets.length} entries</span>
         <div className="legacy-search compact">
           <Search size={15} aria-hidden="true" />
-          <input aria-label="Search bets" placeholder="Search" />
+          <input
+            aria-label="Search bets"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
         </div>
       </div>
       <div className="legacy-table-wrap">
@@ -677,7 +892,7 @@ function BetsScreen({ bets }: { bets: LegacyBet[] }) {
             </tr>
           </thead>
           <tbody>
-            {bets.map((bet) => (
+            {visibleBets.map((bet) => (
               <tr key={bet.id}>
                 <td>{bet.match}</td>
                 <td>{bet.market}</td>
@@ -691,6 +906,11 @@ function BetsScreen({ bets }: { bets: LegacyBet[] }) {
                 <td>{bet.date}</td>
               </tr>
             ))}
+            {visibleBets.length === 0 && (
+              <tr>
+                <td colSpan={8}>No bets match the current filters.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -701,13 +921,25 @@ function BetsScreen({ bets }: { bets: LegacyBet[] }) {
 function FinanceScreen({
   activeTab,
   ledgerRows,
+  onAccountClick,
   onTabChange,
 }: {
   activeTab: FinanceTab
   ledgerRows: LedgerRow[]
+  onAccountClick: () => void
   onTabChange: (tab: FinanceTab) => void
 }) {
+  const [searchQuery, setSearchQuery] = useState('')
   const rows = activeTab === 'deposits' ? legacyDeposits : legacyWithdrawals
+  const visibleRows = rows.filter((row) =>
+    matchesSearch([row.date, row.method, row.amount, row.status].join(' '), searchQuery),
+  )
+  const visibleLedgerRows = ledgerRows.filter((row) =>
+    matchesSearch(
+      [row.date, row.description, row.debit, row.credit, row.balance].join(' '),
+      searchQuery,
+    ),
+  )
 
   return (
     <section className="legacy-stage" aria-labelledby="finance-title">
@@ -717,7 +949,9 @@ function FinanceScreen({
           <h1 id="finance-title">{financeRowsTitle(activeTab)}</h1>
         </div>
         <div className="legacy-finance-tabs" aria-label="Financial sections">
-          <button type="button">My Account</button>
+          <button type="button" onClick={onAccountClick}>
+            My Account
+          </button>
           <button
             className={activeTab === 'deposits' ? 'active' : ''}
             type="button"
@@ -742,21 +976,78 @@ function FinanceScreen({
         </div>
       </div>
 
+      <div className="legacy-table-tools">
+        <span>
+          Showing {activeTab === 'ledger' ? visibleLedgerRows.length : visibleRows.length}{' '}
+          entries
+        </span>
+        <div className="legacy-search compact">
+          <Search size={15} aria-hidden="true" />
+          <input
+            aria-label={`Search ${financeRowsTitle(activeTab)}`}
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
+        </div>
+      </div>
+
       {activeTab === 'ledger' ? (
-        <LedgerTable rows={ledgerRows} />
+        <LedgerTable rows={visibleLedgerRows} />
       ) : (
-        <>
-          <div className="legacy-table-tools">
-            <span>Show 10 entries</span>
-            <div className="legacy-search compact">
-              <Search size={15} aria-hidden="true" />
-              <input aria-label={`Search ${financeRowsTitle(activeTab)}`} placeholder="Search" />
-            </div>
-          </div>
-          <FinanceTable rows={rows} />
-        </>
+        <FinanceTable rows={visibleRows} />
       )}
     </section>
+  )
+}
+
+function AccountMenuDialog({
+  onClose,
+  onOpenBets,
+  onOpenLedger,
+  onOpenSlip,
+}: {
+  onClose: () => void
+  onOpenBets: () => void
+  onOpenLedger: () => void
+  onOpenSlip: () => void
+}) {
+  return (
+    <div className="legacy-modal-backdrop">
+      <section
+        className="legacy-dialog legacy-account-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="legacy-account-menu-title"
+      >
+        <button
+          className="legacy-close"
+          type="button"
+          aria-label="Close account menu"
+          onClick={onClose}
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
+        <p>Profile</p>
+        <h2 id="legacy-account-menu-title">Account Menu</h2>
+        <div className="legacy-account-menu-summary">
+          <span>Mock bankroll</span>
+          <strong>$20,000.00</strong>
+          <small>No real wager is placed from ProphetPicks.</small>
+        </div>
+        <div className="legacy-catalog-list">
+          <button type="button" onClick={onOpenSlip}>
+            Open Betting Slip
+          </button>
+          <button type="button" onClick={onOpenBets}>
+            View Bet History
+          </button>
+          <button type="button" onClick={onOpenLedger}>
+            View Account Ledger
+          </button>
+        </div>
+      </section>
+    </div>
   )
 }
 
@@ -783,6 +1074,11 @@ function LedgerTable({ rows }: { rows: LedgerRow[] }) {
               <td>{row.balance}</td>
             </tr>
           ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={5}>No ledger rows match the current filters.</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -810,6 +1106,11 @@ function FinanceTable({ rows }: { rows: FinanceRow[] }) {
               <td>{row.status}</td>
             </tr>
           ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={4}>No finance rows match the current filters.</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

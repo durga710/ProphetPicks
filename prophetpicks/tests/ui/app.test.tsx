@@ -197,4 +197,81 @@ describe('ProphetPicks imported Betfair market experience', () => {
     expect(screen.getByRole('heading', { name: /Account Ledger/i })).toBeInTheDocument()
     expect(screen.getByText(/Mock stake reserved/i)).toBeInTheDocument()
   })
+
+  it('filters the event board by competition group and search text', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Group B' }))
+
+    expect(
+      screen.getByRole('button', { name: /Open Juventus VS Bayern Munich market/i }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Open Arsenal VS FC Barcelona market/i }),
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Bets' }))
+    await user.type(screen.getByLabelText(/Search games/i), 'Roma')
+
+    expect(
+      screen.getByRole('button', { name: /Open Roma VS Real Madrid market/i }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Open Juventus VS Bayern Munich market/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('opens the account menu and real account screens', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /Open account menu/i }))
+
+    expect(screen.getByRole('dialog', { name: /Account Menu/i })).toBeInTheDocument()
+    expect(screen.getByText(/Mock bankroll/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /My Account/i }))
+    expect(
+      screen.getByRole('heading', { name: /Account Overview/i }),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Today's Matches/i }))
+    expect(
+      screen.getByRole('heading', { name: /Today's Matches/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('filters team directory, bet history, and ledger tables', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /Teams/i }))
+    await user.type(screen.getByLabelText(/Search teams/i), 'Lakers')
+
+    expect(screen.getByText(/Los Angeles Lakers/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Kansas City Chiefs/i)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /My Bets/i }))
+    await user.selectOptions(screen.getByLabelText(/Type/i), 'simple')
+
+    expect(screen.getByText(/Roma VS Real Madrid/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Arsenal VS FC Barcelona/i)).not.toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText(/Search bets/i))
+    await user.type(screen.getByLabelText(/Search bets/i), 'Bayern')
+
+    expect(screen.getByText(/Juventus VS Bayern Munich/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Roma VS Real Madrid/i)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Financial/i }))
+    await user.click(screen.getByRole('button', { name: /Ledger/i }))
+    await user.type(screen.getByLabelText(/Search Account Ledger/i), 'settlement')
+
+    expect(screen.getByText(/Mock bet settlement/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Opening mock bankroll/i)).not.toBeInTheDocument()
+  })
 })

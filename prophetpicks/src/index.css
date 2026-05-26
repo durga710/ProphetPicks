@@ -1004,6 +1004,7 @@ tr.is-focused {
 .legacy-account button,
 .legacy-nav button,
 .legacy-group-strip button,
+.legacy-action-button,
 .legacy-market-header button,
 .legacy-catalog-panel button,
 .legacy-finance-tabs button,
@@ -1046,6 +1047,7 @@ tr.is-focused {
 
 .legacy-nav button.active,
 .legacy-nav button:hover,
+.legacy-group-strip button.active,
 .legacy-group-strip button:hover,
 .legacy-catalog-panel button.active,
 .legacy-finance-tabs button.active,
@@ -1571,6 +1573,55 @@ tr.is-focused {
   white-space: nowrap;
 }
 
+.legacy-action-button {
+  padding: 0 14px;
+}
+
+.legacy-account-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.legacy-account-grid article,
+.legacy-account-menu-summary {
+  display: grid;
+  gap: 7px;
+  min-height: 120px;
+  padding: 14px;
+  background: rgba(7, 12, 20, 0.76);
+  border: 1px solid rgba(105, 151, 205, 0.28);
+  border-radius: 7px;
+}
+
+.legacy-account-grid span,
+.legacy-account-menu-summary span {
+  color: #92aed0;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.legacy-account-grid strong,
+.legacy-account-menu-summary strong {
+  color: #f5d987;
+  font-size: 26px;
+  line-height: 1.05;
+}
+
+.legacy-account-grid small,
+.legacy-account-menu-summary small {
+  color: #9db9d8;
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.legacy-account-menu-summary {
+  min-height: auto;
+  margin-top: 18px;
+}
+
 .legacy-finance-tabs {
   display: flex;
   gap: 8px;
@@ -1821,6 +1872,7 @@ tr.is-focused {
   }
 
   .legacy-group-strip,
+  .legacy-account-grid,
   .legacy-board-toolbar,
   .legacy-market-grid,
   .legacy-odds-grid,
