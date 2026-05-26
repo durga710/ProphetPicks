@@ -41,6 +41,18 @@ The recommended v1 is a Command Center dashboard:
 
 The initial product is a private research tool. It does not include public accounts, deposits, withdrawals, or bet placement.
 
+## V1 Market Scope
+
+ProphetPicks v1 uses NBA player props as the first demo market family. The app data model and UI labels should remain general enough to support other sports later, but the first usable website ships with NBA props fixture data so the command center, slip builder, journal, and model-health flows can work end to end before a live provider is selected.
+
+## V1 Data Source
+
+The first website uses local fixture data and manual-style snapshots. No live sportsbook, exchange, or odds API integration is required for the first implementation. Future provider work must load secrets from environment variables and normalize provider output into ProphetPicks events, markets, selections, odds snapshots, and predictions.
+
+## V1 User Model
+
+ProphetPicks v1 is local/private. It supports saving research slips in the running browser session, but it does not include public accounts, payments, deposits, withdrawals, or real-money bet execution.
+
 ## Core Screens
 
 ### Today Board
