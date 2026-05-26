@@ -817,7 +817,10 @@ tr.is-focused {
     padding: 16px 12px;
   }
 
-  .sidebar .brand-copy,
+  .sidebar .brand-copy {
+    display: none;
+  }
+
   .sidebar .nav-item:not(.active),
   .sidebar-lock {
     font-size: 0;
