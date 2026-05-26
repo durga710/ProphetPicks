@@ -69,6 +69,24 @@ export type LegacySlipItem = {
   selection: LegacyMarket['selections'][number]
 }
 
+export type LegacyPrediction = {
+  id: string
+  rank: number
+  eventId: string
+  marketId: string
+  selectionId: string
+  confidence: 'A' | 'B' | 'C'
+  edge: number
+  risk: 'Low' | 'Medium' | 'High'
+  reason: string
+}
+
+export type ResolvedPrediction = LegacyPrediction & {
+  event: LegacyEvent
+  market: LegacyMarket
+  selection: LegacyMarket['selections'][number]
+}
+
 export type LegacyBet = {
   id: string
   match: string
@@ -298,6 +316,75 @@ export const legacyLedger: LedgerRow[] = [
   { id: 'ledger-2', date: '2016-02-16', description: 'Mock bet settlement', debit: '-', credit: '$30.00', balance: '$20,030.00' },
 ]
 
+export const legacyPredictions: LegacyPrediction[] = [
+  prediction(
+    'pick-chiefs-moneyline',
+    1,
+    'chiefs-bills',
+    'moneyline',
+    'home-moneyline',
+    'A',
+    6.8,
+    'Low',
+    'Home field, rest edge, and explosive rate all point to Kansas City outperforming the market.',
+  ),
+  prediction(
+    'pick-lakers-moneyline',
+    2,
+    'lakers-celtics',
+    'moneyline',
+    'home-moneyline',
+    'A',
+    5.9,
+    'Medium',
+    'Los Angeles projects better in half-court shot quality with a favorable late-game free throw profile.',
+  ),
+  prediction(
+    'pick-arsenal-moneyline',
+    3,
+    'arsenal-barcelona',
+    'match-odds',
+    'home',
+    'A',
+    4.7,
+    'Medium',
+    'Arsenal carries the top pressure differential and a set-piece edge against this matchup price.',
+  ),
+  prediction(
+    'pick-leafs-moneyline',
+    4,
+    'leafs-bruins',
+    'moneyline',
+    'home-moneyline',
+    'B',
+    3.9,
+    'Medium',
+    'Toronto grades well in power-play creation and first-period shot share.',
+  ),
+  prediction(
+    'pick-yankees-moneyline',
+    5,
+    'yankees-dodgers',
+    'moneyline',
+    'home-moneyline',
+    'B',
+    3.4,
+    'High',
+    'The Yankees model edge is tied to starter strikeout projection, which carries more variance.',
+  ),
+  prediction(
+    'pick-alcaraz-winner',
+    6,
+    'alcaraz-sinner',
+    'winner',
+    'home-winner',
+    'C',
+    2.8,
+    'High',
+    'Alcaraz has surface momentum, but the hold-break profile is tight enough to keep risk elevated.',
+  ),
+]
+
 export function getSport(key: SportKey): SportDefinition {
   return sports.find((sport) => sport.key === key) ?? sports[0]
 }
@@ -308,6 +395,37 @@ export function getEventsForSport(key: SportKey): LegacyEvent[] {
 
 export function getTeamsForSport(key: SportKey): LegacyTeam[] {
   return legacyTeams.filter((teamItem) => teamItem.sport === key)
+}
+
+export function getResolvedPredictions(): ResolvedPrediction[] {
+  return legacyPredictions
+    .map((predictionItem) => {
+      const eventItem = legacyEvents.find((event) => event.id === predictionItem.eventId)
+
+      if (!eventItem) {
+        return null
+      }
+
+      const marketItem = getMarketsForEvent(eventItem).find(
+        (marketOption) => marketOption.id === predictionItem.marketId,
+      )
+      const selectionItem = marketItem?.selections.find(
+        (selectionOption) => selectionOption.id === predictionItem.selectionId,
+      )
+
+      if (!marketItem || !selectionItem) {
+        return null
+      }
+
+      return {
+        ...predictionItem,
+        event: eventItem,
+        market: marketItem,
+        selection: selectionItem,
+      }
+    })
+    .filter((predictionItem): predictionItem is ResolvedPrediction => Boolean(predictionItem))
+    .sort((first, second) => first.rank - second.rank)
 }
 
 export function getMarketsForEvent(eventItem: LegacyEvent): LegacyMarket[] {
@@ -481,6 +599,30 @@ function market(id: string, label: string, selections: LegacyMarket['selections'
 
 function selection(id: string, label: string, odds: number): LegacyMarket['selections'][number] {
   return { id, label, odds, side: 'Back' }
+}
+
+function prediction(
+  id: string,
+  rank: number,
+  eventId: string,
+  marketId: string,
+  selectionId: string,
+  confidence: LegacyPrediction['confidence'],
+  edge: number,
+  risk: LegacyPrediction['risk'],
+  reason: string,
+): LegacyPrediction {
+  return {
+    id,
+    rank,
+    eventId,
+    marketId,
+    selectionId,
+    confidence,
+    edge,
+    risk,
+    reason,
+  }
 }
 
 function bet(

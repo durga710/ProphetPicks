@@ -22,6 +22,7 @@ import {
   legacyWithdrawals,
   getEventsForSport,
   getMarketsForEvent,
+  getResolvedPredictions,
   getSport,
   sports,
   type FinanceRow,
@@ -31,14 +32,24 @@ import {
   type LegacyMarket,
   type LegacySlipItem,
   type LegacyTeam,
+  type ResolvedPrediction,
   type SportKey,
 } from '../data/legacyBetfair'
 
-type Screen = 'account' | 'events' | 'market' | 'bets' | 'finance' | 'teams' | 'today'
+type Screen =
+  | 'account'
+  | 'events'
+  | 'market'
+  | 'bets'
+  | 'finance'
+  | 'teams'
+  | 'today'
+  | 'predictions'
 type FinanceTab = 'deposits' | 'withdrawals' | 'ledger'
 type BetTypeFilter = 'all' | 'simple' | 'combined'
 type SlipMode = 'simple' | 'combined'
 type LegalTopic = 'privacy' | 'cookies' | 'rules' | 'terms' | 'minors'
+type PredictionFilter = 'all' | string
 
 const legalTopics: Record<LegalTopic, { title: string; body: string }> = {
   privacy: {
@@ -165,6 +176,7 @@ export function LegacyBetfairApp() {
 
   const activeEvents = useMemo(() => getEventsForSport(activeSport), [activeSport])
   const activeSportDefinition = getSport(activeSport)
+  const predictions = useMemo(() => getResolvedPredictions(), [])
 
   const groupedEvents = useMemo(
     () =>
@@ -212,17 +224,47 @@ export function LegacyBetfairApp() {
   }
 
   function addSelection(selection: LegacyMarket['selections'][number]): void {
-    setSlipItems((items) => [
-      ...items,
-      {
-        event: selectedEvent,
-        market: selectedMarket,
-        selection,
-      },
-    ])
+    addSlipItem({
+      event: selectedEvent,
+      market: selectedMarket,
+      selection,
+    })
+  }
+
+  function addSlipItem(item: LegacySlipItem): void {
+    setSlipItems((items) => [...items, item])
+    setSelectedEvent(item.event)
+    setSelectedMarket(item.market)
     setIsConfirmed(false)
     setIsSlipOpen(true)
     setStatus('')
+  }
+
+  function addPrediction(prediction: ResolvedPrediction): void {
+    addSlipItem({
+      event: prediction.event,
+      market: prediction.market,
+      selection: prediction.selection,
+    })
+  }
+
+  function buildBestParlay(predictionItems: ResolvedPrediction[]): void {
+    const parlayItems = predictionItems.slice(0, 3).map((prediction) => ({
+      event: prediction.event,
+      market: prediction.market,
+      selection: prediction.selection,
+    }))
+
+    if (parlayItems.length === 0) {
+      setStatus('No Prophet Picks match the current filters.')
+      return
+    }
+
+    setSlipItems(parlayItems)
+    setSlipMode('combined')
+    setIsConfirmed(false)
+    setIsSlipOpen(true)
+    setStatus(`Best parlay loaded with ${parlayItems.length} Prophet Picks.`)
   }
 
   function refreshMarket(event: LegacyEvent): void {
@@ -350,6 +392,14 @@ export function LegacyBetfairApp() {
             Teams
           </button>
           <button
+            className={screen === 'predictions' ? 'active' : ''}
+            type="button"
+            onClick={() => navigate('predictions')}
+          >
+            <TicketCheck size={16} aria-hidden="true" />
+            Prophet Picks
+          </button>
+          <button
             className={screen === 'today' ? 'active' : ''}
             type="button"
             onClick={() => navigate('today')}
@@ -372,7 +422,10 @@ export function LegacyBetfairApp() {
       </header>
 
       <main className="legacy-main">
-        {screen !== 'finance' && screen !== 'bets' && screen !== 'account' && (
+        {screen !== 'finance' &&
+          screen !== 'bets' &&
+          screen !== 'account' &&
+          screen !== 'predictions' && (
           <SportRail activeSport={activeSport} onChangeSport={changeSport} />
         )}
 
@@ -415,6 +468,14 @@ export function LegacyBetfairApp() {
 
         {screen === 'teams' && (
           <TeamsScreen teams={legacyTeams} />
+        )}
+
+        {screen === 'predictions' && (
+          <PredictionScreen
+            predictions={predictions}
+            onAddPrediction={addPrediction}
+            onBuildBestParlay={buildBestParlay}
+          />
         )}
 
         {screen === 'bets' && <BetsScreen bets={[...mockBets, ...legacyBets]} />}
@@ -897,6 +958,143 @@ function AccountScreen({
   )
 }
 
+function PredictionScreen({
+  predictions,
+  onAddPrediction,
+  onBuildBestParlay,
+}: {
+  predictions: ResolvedPrediction[]
+  onAddPrediction: (prediction: ResolvedPrediction) => void
+  onBuildBestParlay: (predictions: ResolvedPrediction[]) => void
+}) {
+  const [sportFilter, setSportFilter] = useState<PredictionFilter>('all')
+  const [confidenceFilter, setConfidenceFilter] = useState<PredictionFilter>('all')
+  const [riskFilter, setRiskFilter] = useState<PredictionFilter>('all')
+  const sportOptions = Array.from(
+    new Set(predictions.map((prediction) => prediction.event.sportLabel)),
+  )
+  const visiblePredictions = predictions.filter((prediction) => {
+    const sportMatches =
+      sportFilter === 'all' || prediction.event.sportLabel === sportFilter
+    const confidenceMatches =
+      confidenceFilter === 'all' || prediction.confidence === confidenceFilter
+    const riskMatches = riskFilter === 'all' || prediction.risk === riskFilter
+
+    return sportMatches && confidenceMatches && riskMatches
+  })
+  const averageEdge =
+    predictions.length === 0
+      ? 0
+      : predictions.reduce((total, prediction) => total + prediction.edge, 0) /
+        predictions.length
+
+  return (
+    <section className="legacy-stage legacy-predictions" aria-labelledby="predictions-title">
+      <div className="legacy-table-header">
+        <div>
+          <p>Ranked Edge Board</p>
+          <h1 id="predictions-title">Prophet Picks</h1>
+        </div>
+        <button
+          className="legacy-action-button"
+          type="button"
+          onClick={() => onBuildBestParlay(visiblePredictions)}
+        >
+          Build Best Parlay
+        </button>
+      </div>
+
+      <div className="legacy-prediction-stats">
+        <article>
+          <span>Tracked Picks</span>
+          <strong>{predictions.length}</strong>
+        </article>
+        <article>
+          <span>A Confidence</span>
+          <strong>
+            {predictions.filter((prediction) => prediction.confidence === 'A').length}
+          </strong>
+        </article>
+        <article>
+          <span>Avg Edge</span>
+          <strong>+{averageEdge.toFixed(1)}%</strong>
+        </article>
+      </div>
+
+      <div className="legacy-prediction-filters" aria-label="Prophet pick filters">
+        <label>
+          Sport
+          <select
+            value={sportFilter}
+            onChange={(event) => setSportFilter(event.target.value)}
+          >
+            <option value="all">All Sports</option>
+            {sportOptions.map((sport) => (
+              <option key={sport} value={sport}>
+                {sport}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Confidence
+          <select
+            value={confidenceFilter}
+            onChange={(event) => setConfidenceFilter(event.target.value)}
+          >
+            <option value="all">All Grades</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+          </select>
+        </label>
+        <label>
+          Risk
+          <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}>
+            <option value="all">All Risk</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="legacy-prediction-grid">
+        {visiblePredictions.length === 0 && (
+          <div className="legacy-empty">No Prophet Picks match those filters.</div>
+        )}
+        {visiblePredictions.map((prediction) => (
+          <article className="legacy-prediction-card" key={prediction.id}>
+            <div className="legacy-prediction-rank">#{prediction.rank}</div>
+            <div>
+              <span>{prediction.event.sportLabel}</span>
+              <h2>{eventName(prediction.event)}</h2>
+            </div>
+            <div className="legacy-prediction-metrics">
+              <strong>{prediction.confidence} Confidence</strong>
+              <strong>+{prediction.edge.toFixed(1)}% edge</strong>
+              <strong>{prediction.risk} Risk</strong>
+            </div>
+            <div className="legacy-prediction-selection">
+              <span>{prediction.market.label}</span>
+              <strong>{prediction.selection.label}</strong>
+              <b>{formatDecimal(prediction.selection.odds)}</b>
+            </div>
+            <p>{prediction.reason}</p>
+            <button
+              type="button"
+              onClick={() => onAddPrediction(prediction)}
+              aria-label={`Add ${prediction.selection.label} ${prediction.market.label} pick`}
+            >
+              Add Pick
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function TeamsScreen({ teams }: { teams: LegacyTeam[] }) {
   const [searchQuery, setSearchQuery] = useState('')
   const visibleTeams = teams.filter((team) =>
@@ -1368,6 +1566,9 @@ function BettingSlipDialog({
         </button>
         <p>Bet Type</p>
         <h2 id="legacy-slip-title">Betting Slip</h2>
+        <span className="legacy-slip-count">
+          {items.length} {items.length === 1 ? 'selection' : 'selections'}
+        </span>
         <div className="legacy-slip-toggle" aria-label="Bet type">
           <button
             className={mode === 'simple' ? 'active' : ''}

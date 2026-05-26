@@ -345,4 +345,56 @@ describe('ProphetPicks imported Betfair market experience', () => {
     expect(screen.getByRole('dialog', { name: /Privacy Policy/i })).toBeInTheDocument()
     expect(screen.getByText(/personal simulator/i)).toBeInTheDocument()
   })
+
+  it('renders ranked Prophet Picks with filterable prediction metadata', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /Prophet Picks/i }))
+
+    expect(screen.getByRole('heading', { name: /Prophet Picks/i })).toBeInTheDocument()
+    expect(screen.getByText(/Ranked Edge Board/i)).toBeInTheDocument()
+    expect(screen.getByText(/Kansas City Chiefs VS Buffalo Bills/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/A Confidence/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/\+6.8% edge/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Low Risk/i).length).toBeGreaterThan(0)
+
+    await user.selectOptions(screen.getByLabelText(/Sport/i), 'NFL')
+    await user.selectOptions(screen.getByLabelText(/Confidence/i), 'A')
+    await user.selectOptions(screen.getByLabelText(/Risk/i), 'Low')
+
+    expect(screen.getByText(/Kansas City Chiefs VS Buffalo Bills/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Arsenal VS FC Barcelona/i)).not.toBeInTheDocument()
+  })
+
+  it('adds predictor picks to the slip and builds the best parlay', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /Prophet Picks/i }))
+    await user.click(
+      screen.getByRole('button', {
+        name: /Add Kansas City Chiefs Moneyline pick/i,
+      }),
+    )
+
+    let slip = screen.getByRole('dialog', { name: /Betting Slip/i })
+    expect(within(slip).getByText(/Kansas City Chiefs/i)).toBeInTheDocument()
+    expect(within(slip).getByText(/Moneyline/i)).toBeInTheDocument()
+
+    await user.click(within(slip).getByRole('button', { name: /Close betting slip/i }))
+    await user.click(screen.getByRole('button', { name: /Build Best Parlay/i }))
+
+    slip = screen.getByRole('dialog', { name: /Betting Slip/i })
+    expect(within(slip).getByRole('button', { name: /Combined/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(within(slip).getByText(/3 selections/i)).toBeInTheDocument()
+    expect(within(slip).getByText(/Kansas City Chiefs/i)).toBeInTheDocument()
+    expect(within(slip).getByText(/Los Angeles Lakers/i)).toBeInTheDocument()
+    expect(within(slip).getByText(/Arsenal/i)).toBeInTheDocument()
+  })
 })

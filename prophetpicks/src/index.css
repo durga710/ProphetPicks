@@ -1489,6 +1489,7 @@ tr.is-focused {
 }
 
 .legacy-table-header select,
+.legacy-prediction-filters select,
 .legacy-slip-summary input {
   min-height: 38px;
   color: #f4f8ff;
@@ -1622,6 +1623,137 @@ tr.is-focused {
   margin-top: 18px;
 }
 
+.legacy-prediction-stats,
+.legacy-prediction-filters,
+.legacy-prediction-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.legacy-prediction-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.legacy-prediction-stats article {
+  display: grid;
+  gap: 6px;
+  min-height: 82px;
+  padding: 14px;
+  background: rgba(7, 12, 20, 0.76);
+  border: 1px solid rgba(105, 151, 205, 0.28);
+  border-radius: 7px;
+}
+
+.legacy-prediction-stats span,
+.legacy-prediction-filters label,
+.legacy-prediction-card span {
+  color: #92aed0;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.legacy-prediction-stats strong {
+  color: #f5d987;
+  font-size: 28px;
+}
+
+.legacy-prediction-filters {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.legacy-prediction-filters label {
+  display: grid;
+  gap: 6px;
+}
+
+.legacy-prediction-grid {
+  grid-template-columns: repeat(auto-fill, minmax(285px, 1fr));
+}
+
+.legacy-prediction-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-height: 320px;
+  padding: 14px;
+  background: rgba(7, 12, 20, 0.78);
+  border: 1px solid rgba(105, 151, 205, 0.28);
+  border-radius: 7px;
+}
+
+.legacy-prediction-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  min-height: 30px;
+  color: #08111f;
+  background: #f5d987;
+  border-radius: 6px;
+  font-weight: 950;
+}
+
+.legacy-prediction-card h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.legacy-prediction-metrics {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.legacy-prediction-metrics strong {
+  padding: 6px 8px;
+  color: #08111f;
+  background: #9cc9f4;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.legacy-prediction-selection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  padding: 12px;
+  background: rgba(24, 40, 63, 0.82);
+  border: 1px solid rgba(103, 151, 205, 0.3);
+  border-radius: 7px;
+}
+
+.legacy-prediction-selection span {
+  grid-column: 1 / -1;
+}
+
+.legacy-prediction-selection strong {
+  color: #fff;
+}
+
+.legacy-prediction-selection b {
+  color: #f5d987;
+  font-size: 24px;
+}
+
+.legacy-prediction-card p {
+  margin: 0;
+  color: #b7c7db;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.legacy-prediction-card button {
+  min-height: 40px;
+  color: #08111f;
+  background: #7fd49f;
+  border: 0;
+  border-radius: 7px;
+  font-weight: 900;
+}
+
 .legacy-policy-copy {
   margin-top: 18px;
   color: #dfe9f6;
@@ -1696,6 +1828,15 @@ tr.is-focused {
 
 .legacy-slip-dialog {
   width: min(460px, 100%);
+}
+
+.legacy-slip-count {
+  display: inline-flex;
+  margin-top: 8px;
+  color: #9db9d8;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .legacy-slip-toggle {
@@ -1880,6 +2021,8 @@ tr.is-focused {
 
   .legacy-group-strip,
   .legacy-account-grid,
+  .legacy-prediction-stats,
+  .legacy-prediction-filters,
   .legacy-board-toolbar,
   .legacy-market-grid,
   .legacy-odds-grid,

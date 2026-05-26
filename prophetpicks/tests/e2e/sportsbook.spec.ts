@@ -230,4 +230,42 @@ test.describe('ProphetPicks sportsbook', () => {
     await expect(policy).toBeVisible()
     await expect(policy.getByText(/personal simulator/i)).toBeVisible()
   })
+
+  test('builds a Prophet Picks parlay from ranked predictions', async ({ page }) => {
+    await page.goto('/')
+
+    await page.getByRole('button', { name: /Prophet Picks/i }).click()
+    await expect(page.getByRole('heading', { name: /Prophet Picks/i })).toBeVisible()
+    await expect(page.getByText(/Ranked Edge Board/i)).toBeVisible()
+    await expect(page.getByText(/Kansas City Chiefs VS Buffalo Bills/i)).toBeVisible()
+
+    await page.getByLabel(/Sport/i).selectOption('NFL')
+    await page.getByLabel(/Confidence/i).selectOption('A')
+    await page.getByLabel(/Risk/i).selectOption('Low')
+    await expect(page.getByText(/Kansas City Chiefs VS Buffalo Bills/i)).toBeVisible()
+    await expect(page.getByText(/Arsenal VS FC Barcelona/i)).toHaveCount(0)
+
+    await page
+      .getByRole('button', { name: /Add Kansas City Chiefs Moneyline pick/i })
+      .click()
+    let slip = page.getByRole('dialog', { name: /Betting Slip/i })
+    await expect(slip.getByText(/Kansas City Chiefs/i)).toBeVisible()
+    await expect(slip.getByText(/Moneyline/i)).toBeVisible()
+    await slip.getByRole('button', { name: /Close betting slip/i }).click()
+
+    await page.getByLabel(/Sport/i).selectOption('all')
+    await page.getByLabel(/Confidence/i).selectOption('all')
+    await page.getByLabel(/Risk/i).selectOption('all')
+    await page.getByRole('button', { name: /Build Best Parlay/i }).click()
+
+    slip = page.getByRole('dialog', { name: /Betting Slip/i })
+    await expect(slip.getByRole('button', { name: /Combined/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect(slip.getByText(/3 selections/i)).toBeVisible()
+    await expect(slip.getByText(/Kansas City Chiefs/i)).toBeVisible()
+    await expect(slip.getByText(/Los Angeles Lakers/i)).toBeVisible()
+    await expect(slip.getByText(/Arsenal/i)).toBeVisible()
+  })
 })
