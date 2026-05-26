@@ -1,13 +1,22 @@
-import {
-  buildOddsQuotes,
-  type OddsQuote,
-} from '../src/domain/oddsBoard'
+/**
+ * Vercel serverless route returning ProphetPicks odds quote metadata.
+ *
+ * - Provider keys are read from `process.env` (server-side only).
+ * - When no provider key is configured (default for the personal-use demo),
+ *   the response advertises `source: 'demo'` with an empty `quotes` array.
+ *   The browser client in `src/data/providers/oddsApi.ts` falls back to its
+ *   deterministic local demo board in that case, so the app keeps working
+ *   without any credentials.
+ * - This file is intentionally self-contained (no `../src/...` imports) so it
+ *   compiles cleanly under Vercel's Node serverless TypeScript pipeline
+ *   regardless of frontend module-resolution settings.
+ */
 
 type OddsApiSource = 'demo' | 'odds-api' | 'api-football'
 
 interface OddsApiResponse {
   source: OddsApiSource
-  quotes: OddsQuote[]
+  quotes: unknown[]
   generatedAt: string
 }
 
@@ -23,15 +32,6 @@ interface VercelResponse {
   end: () => void
 }
 
-/**
- * Vercel serverless route returning ProphetPicks odds quotes.
- *
- * - Reads provider keys from `process.env` (server-side only - never exposed to the client).
- * - Falls back to deterministic local demo quotes whenever a provider is missing or
- *   the upstream call fails, so the app stays functional for personal use without credentials.
- * - The response payload matches `OddsApiResponse` defined in
- *   `src/data/providers/oddsApi.ts`.
- */
 export default async function handler(
   request: VercelRequest,
   response: VercelResponse,
@@ -44,10 +44,6 @@ export default async function handler(
   const oddsApiKey = process.env.ODDS_API_KEY
   const apiFootballKey = process.env.APIFOOTBALL_KEY
 
-  // Provider plumbing is intentionally placeholder for personal-use demo:
-  // when credentials exist we still return demo quotes but tag the source so the
-  // UI surfaces which feed is configured. Replace the inner branches with a real
-  // upstream fetch once you wire the provider client and obey their rate limits.
   let source: OddsApiSource = 'demo'
 
   if (oddsApiKey) {
@@ -56,9 +52,13 @@ export default async function handler(
     source = 'api-football'
   }
 
+  // The personal-use demo intentionally returns an empty quote list so the
+  // browser falls back to the deterministic local board. Wire a real upstream
+  // fetch here (gated on the matching key) once you are ready to pull live
+  // prices and respect the provider's rate limits and ToS.
   const payload: OddsApiResponse = {
     source,
-    quotes: buildOddsQuotes(),
+    quotes: [],
     generatedAt: new Date().toISOString(),
   }
 

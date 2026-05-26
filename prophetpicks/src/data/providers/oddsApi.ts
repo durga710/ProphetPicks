@@ -46,14 +46,25 @@ export async function loadOddsQuotes(): Promise<LoadedOddsQuotes> {
 
     const payload = (await response.json()) as Partial<OddsApiResponse>
 
-    if (!payload || !Array.isArray(payload.quotes) || payload.quotes.length === 0) {
+    if (!payload || !Array.isArray(payload.quotes)) {
       return fallback
+    }
+
+    const reportedSource = payload.source ?? 'demo'
+    const statusLabel = describeSource(reportedSource, payload.generatedAt)
+
+    if (payload.quotes.length === 0) {
+      return {
+        quotes: fallback.quotes,
+        source: reportedSource,
+        statusLabel: `${statusLabel} - local demo board`,
+      }
     }
 
     return {
       quotes: payload.quotes,
-      source: payload.source ?? 'demo',
-      statusLabel: describeSource(payload.source ?? 'demo', payload.generatedAt),
+      source: reportedSource,
+      statusLabel,
     }
   } catch {
     return fallback
