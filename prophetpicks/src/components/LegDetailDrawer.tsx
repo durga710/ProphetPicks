@@ -20,7 +20,7 @@ export function LegDetailDrawer({ leg }: LegDetailDrawerProps) {
       <div className="panel-header compact-header">
         <div>
           <p className="eyebrow">Leg detail</p>
-          <h2 id="leg-detail">{leg.playerName}</h2>
+          <h2 id="leg-detail">{leg.subjectName}</h2>
         </div>
         <span className={`confidence confidence-${leg.confidence}`}>
           {leg.confidence}
@@ -30,7 +30,9 @@ export function LegDetailDrawer({ leg }: LegDetailDrawerProps) {
       <div className="selection-card">
         <span>{leg.marketLabel}</span>
         <strong>{leg.line}</strong>
-        <small>{leg.matchup}</small>
+        <small>
+          {leg.sport} · {leg.league} · {leg.matchup}
+        </small>
       </div>
 
       <div className="detail-grid">

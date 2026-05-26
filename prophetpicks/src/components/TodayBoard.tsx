@@ -12,8 +12,10 @@ interface TodayBoardProps {
   selectedIds: Set<string>
   activeLegId: string
   query: string
+  sportFilter: string
   marketFilter: string
   onQueryChange: (query: string) => void
+  onSportFilterChange: (sport: string) => void
   onMarketFilterChange: (market: string) => void
   onAddLeg: (leg: PropLeg) => void
   onInspectLeg: (leg: PropLeg) => void
@@ -24,15 +26,28 @@ export function TodayBoard({
   selectedIds,
   activeLegId,
   query,
+  sportFilter,
   marketFilter,
   onQueryChange,
+  onSportFilterChange,
   onMarketFilterChange,
   onAddLeg,
   onInspectLeg,
 }: TodayBoardProps) {
-  const markets = Array.from(new Set(legs.map((leg) => leg.marketLabel)))
-  const filteredLegs = legs.filter((leg) => {
-    const searchText = `${leg.playerName} ${leg.matchup} ${leg.marketLabel}`
+  const sports = Array.from(new Set(legs.map((leg) => leg.sport)))
+  const sportLegs = legs.filter(
+    (leg) => sportFilter === 'All sports' || leg.sport === sportFilter,
+  )
+  const markets = Array.from(new Set(sportLegs.map((leg) => leg.marketLabel)))
+  const boardEyebrow =
+    sportFilter === 'Soccer'
+      ? 'API-Football soccer'
+      : sportFilter === 'Basketball'
+        ? 'NBA props'
+        : 'Multi-sport slate'
+  const filteredLegs = sportLegs.filter((leg) => {
+    const searchText =
+      `${leg.subjectName} ${leg.selectionLabel} ${leg.matchup} ${leg.marketLabel}`
       .toLowerCase()
       .trim()
     const matchesQuery = searchText.includes(query.toLowerCase().trim())
@@ -46,7 +61,7 @@ export function TodayBoard({
     <section className="board-panel today-board" aria-labelledby="today-board">
       <div className="panel-header">
         <div>
-          <p className="eyebrow">NBA props</p>
+          <p className="eyebrow">{boardEyebrow}</p>
           <h2 id="today-board">Today Board</h2>
         </div>
         <div className="data-freshness">
@@ -55,17 +70,37 @@ export function TodayBoard({
         </div>
       </div>
 
-      <div className="board-tools" aria-label="Market filters">
+      <div className="board-tools" aria-label="Board filters">
         <label className="search-control">
           <Search size={16} aria-hidden="true" />
           <span className="sr-only">Search board</span>
           <input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Search player or matchup"
+            placeholder="Search player, team, or matchup"
           />
         </label>
-        <div className="segmented-control">
+        <div
+          className="segmented-control sport-control"
+          role="group"
+          aria-label="Sport filters"
+        >
+          {['All sports', ...sports].map((sport) => (
+            <button
+              className={sportFilter === sport ? 'is-active' : ''}
+              key={sport}
+              type="button"
+              onClick={() => onSportFilterChange(sport)}
+            >
+              {sport}
+            </button>
+          ))}
+        </div>
+        <div
+          className="segmented-control market-control"
+          role="group"
+          aria-label="Market filters"
+        >
           {['All markets', ...markets].map((market) => (
             <button
               className={marketFilter === market ? 'is-active' : ''}
@@ -110,9 +145,10 @@ export function TodayBoard({
                       type="button"
                       onClick={() => onInspectLeg(leg)}
                     >
-                      <span className="leg-player">{leg.playerName}</span>
+                      <span className="leg-player">{leg.subjectName}</span>
                       <span className="leg-subline">
-                        {leg.marketLabel} {leg.line} · {leg.matchup}
+                        {leg.sport} · {leg.league} · {leg.selectionLabel} ·{' '}
+                        {leg.matchup}
                       </span>
                     </button>
                   </td>

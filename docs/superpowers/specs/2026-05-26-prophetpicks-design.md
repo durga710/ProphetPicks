@@ -43,11 +43,42 @@ The initial product is a private research tool. It does not include public accou
 
 ## V1 Market Scope
 
-ProphetPicks v1 uses NBA player props as the first demo market family. The app data model and UI labels should remain general enough to support other sports later, but the first usable website ships with NBA props fixture data so the command center, slip builder, journal, and model-health flows can work end to end before a live provider is selected.
+ProphetPicks v1 uses NBA player props as the first demo market family and soccer match markets as the first multi-sport expansion. The app data model and UI labels should remain general enough to support player props, team markets, totals, and draw outcomes without forcing every leg to be player-specific.
 
 ## V1 Data Source
 
-The first website uses local fixture data and manual-style snapshots. No live sportsbook, exchange, or odds API integration is required for the first implementation. Future provider work must load secrets from environment variables and normalize provider output into ProphetPicks events, markets, selections, odds snapshots, and predictions.
+The first website uses local fixture data and manual-style snapshots. Soccer uses an API-Football-shaped adapter for fixtures and odds, with demo payloads normalized into ProphetPicks legs.
+
+Live provider work must load secrets from environment variables and normalize provider output into ProphetPicks events, markets, selections, odds snapshots, and predictions. API-Football keys must stay server-side or in local sync jobs; they must not be exposed through `VITE_` browser environment variables.
+
+### API-Football Soccer Source
+
+Provider: API-Football by API-SPORTS.
+
+Base URL:
+
+```text
+https://v3.football.api-sports.io
+```
+
+Authentication:
+
+```text
+x-apisports-key: <server-side key>
+```
+
+Initial endpoints:
+
+- `/fixtures` for schedule, fixture IDs, teams, status, and kickoff time.
+- `/odds?fixture=<id>` for bookmaker markets and prices.
+
+Normalized v1 soccer markets:
+
+- Match Result.
+- Total Goals.
+- Both Teams Score.
+
+The frontend should consume normalized snapshots only. A backend, cron job, or local sync script should fetch API-Football data and write/cache normalized output.
 
 ## V1 User Model
 

@@ -1,8 +1,12 @@
 import type { PropLeg } from '../types'
+import {
+  normalizeApiFootballFixture,
+  normalizeApiFootballOddsToLegs,
+} from './providers/apiFootball'
 
 export const APP_NOW = '2026-05-26T17:00:00Z'
 
-export const propLegs: PropLeg[] = [
+const basketballPropLegs: PropLeg[] = [
   {
     id: 'leg_lebron_points',
     sport: 'Basketball',
@@ -14,6 +18,7 @@ export const propLegs: PropLeg[] = [
     opponentId: 'gsw',
     playerId: 'lebron-james',
     playerName: 'LeBron James',
+    subjectName: 'LeBron James',
     marketId: 'mkt_lebron_points',
     marketType: 'player_points',
     marketLabel: 'Points',
@@ -45,6 +50,7 @@ export const propLegs: PropLeg[] = [
     opponentId: 'lal',
     playerId: 'stephen-curry',
     playerName: 'Stephen Curry',
+    subjectName: 'Stephen Curry',
     marketId: 'mkt_curry_threes',
     marketType: 'player_threes',
     marketLabel: 'Threes',
@@ -76,6 +82,7 @@ export const propLegs: PropLeg[] = [
     opponentId: 'nyk',
     playerId: 'jayson-tatum',
     playerName: 'Jayson Tatum',
+    subjectName: 'Jayson Tatum',
     marketId: 'mkt_tatum_rebounds',
     marketType: 'player_rebounds',
     marketLabel: 'Rebounds',
@@ -107,6 +114,7 @@ export const propLegs: PropLeg[] = [
     opponentId: 'bos',
     playerId: 'jalen-brunson',
     playerName: 'Jalen Brunson',
+    subjectName: 'Jalen Brunson',
     marketId: 'mkt_brunson_assists',
     marketType: 'player_assists',
     marketLabel: 'Assists',
@@ -138,6 +146,7 @@ export const propLegs: PropLeg[] = [
     opponentId: 'den',
     playerId: 'anthony-edwards',
     playerName: 'Anthony Edwards',
+    subjectName: 'Anthony Edwards',
     marketId: 'mkt_ant_points',
     marketType: 'player_points',
     marketLabel: 'Points',
@@ -169,6 +178,7 @@ export const propLegs: PropLeg[] = [
     opponentId: 'min',
     playerId: 'nikola-jokic',
     playerName: 'Nikola Jokic',
+    subjectName: 'Nikola Jokic',
     marketId: 'mkt_jokic_assists',
     marketType: 'player_assists',
     marketLabel: 'Assists',
@@ -190,3 +200,95 @@ export const propLegs: PropLeg[] = [
     riskNotes: ['Refresh odds before saving this leg'],
   },
 ]
+
+const arsenalLiverpoolFixture = normalizeApiFootballFixture({
+  fixture: {
+    id: 112233,
+    date: '2026-05-26T19:45:00+00:00',
+    status: {
+      short: 'NS',
+      long: 'Not Started',
+    },
+  },
+  league: {
+    id: 39,
+    name: 'Premier League',
+    country: 'England',
+    season: 2025,
+    round: 'Regular Season - 38',
+  },
+  teams: {
+    home: {
+      id: 42,
+      name: 'Arsenal',
+    },
+    away: {
+      id: 40,
+      name: 'Liverpool',
+    },
+  },
+})
+
+const soccerLegs = normalizeApiFootballOddsToLegs(
+  {
+    fixture: {
+      id: 112233,
+      date: '2026-05-26T19:45:00+00:00',
+    },
+    update: '2026-05-26T16:55:00+00:00',
+    bookmakers: [
+      {
+        id: 1,
+        name: 'Bet365',
+        bets: [
+          {
+            id: 1,
+            name: 'Match Winner',
+            values: [
+              {
+                value: 'Home',
+                odd: '2.10',
+              },
+              {
+                value: 'Draw',
+                odd: '3.35',
+              },
+              {
+                value: 'Away',
+                odd: '3.00',
+              },
+            ],
+          },
+          {
+            id: 5,
+            name: 'Goals Over/Under',
+            values: [
+              {
+                value: 'Over 2.5',
+                odd: '1.91',
+              },
+              {
+                value: 'Under 2.5',
+                odd: '1.95',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  arsenalLiverpoolFixture,
+  {
+    now: APP_NOW,
+    modelVersion: 'soccer-rules-v1',
+    fairProbabilities: {
+      'api-football:fixture:112233:match_result:home': 0.5,
+      'api-football:fixture:112233:match_result:draw': 0.28,
+      'api-football:fixture:112233:match_result:away': 0.34,
+      'api-football:fixture:112233:total_goals:over-2-5': 0.56,
+      'api-football:fixture:112233:total_goals:under-2-5': 0.48,
+    },
+  },
+)
+
+export const propLegs: PropLeg[] = [...basketballPropLegs, ...soccerLegs]

@@ -26,6 +26,7 @@ function App() {
   const [selectedLegIds, setSelectedLegIds] = useState<string[]>([])
   const [activeLegId, setActiveLegId] = useState(propLegs[0].id)
   const [query, setQuery] = useState('')
+  const [sportFilter, setSportFilter] = useState('All sports')
   const [marketFilter, setMarketFilter] = useState('All markets')
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
   const [toast, setToast] = useState('')
@@ -37,7 +38,7 @@ function App() {
   const selectedIds = useMemo(() => new Set(selectedLegIds), [selectedLegIds])
   const activeLeg =
     propLegs.find((leg) => leg.id === activeLegId) ?? propLegs[0]
-  const topEdges = propLegs
+  const rankedLegs = propLegs
     .map((leg) => {
       const implied = americanToImpliedProbability(leg.americanOdds)
       return {
@@ -49,7 +50,24 @@ function App() {
       }
     })
     .sort((a, b) => b.edge - a.edge)
-    .slice(0, 3)
+  const topEdges = rankedLegs.slice(0, 3)
+  const averageEdge =
+    rankedLegs.reduce((total, leg) => total + leg.edge, 0) / rankedLegs.length
+
+  function changeSportFilter(sport: string): void {
+    setSportFilter(sport)
+    setMarketFilter('All markets')
+    setQuery('')
+
+    const nextActive =
+      sport === 'All sports'
+        ? propLegs[0]
+        : propLegs.find((leg) => leg.sport === sport)
+
+    if (nextActive) {
+      setActiveLegId(nextActive.id)
+    }
+  }
 
   function addLeg(leg: PropLeg): void {
     setActiveLegId(leg.id)
@@ -131,11 +149,11 @@ function App() {
           <div className="header-stats" aria-label="Slate metrics">
             <div>
               <span>Slate</span>
-              <strong>6 legs</strong>
+              <strong>{propLegs.length} legs</strong>
             </div>
             <div>
               <span>Avg edge</span>
-              <strong>+4.8%</strong>
+              <strong>{formatEdge(averageEdge)}</strong>
             </div>
             <div>
               <span>Mode</span>
@@ -153,7 +171,7 @@ function App() {
               onClick={() => setActiveLegId(leg.id)}
             >
               <span>{leg.marketLabel}</span>
-              <strong>{leg.playerName}</strong>
+              <strong>{leg.subjectName}</strong>
               <small>{formatEdge(leg.edge)} edge</small>
             </button>
           ))}
@@ -170,8 +188,10 @@ function App() {
             selectedIds={selectedIds}
             activeLegId={activeLegId}
             query={query}
+            sportFilter={sportFilter}
             marketFilter={marketFilter}
             onQueryChange={setQuery}
+            onSportFilterChange={changeSportFilter}
             onMarketFilterChange={setMarketFilter}
             onAddLeg={addLeg}
             onInspectLeg={(leg) => setActiveLegId(leg.id)}

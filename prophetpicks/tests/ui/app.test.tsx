@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from '../../src/App'
@@ -19,7 +19,11 @@ describe('ProphetPicks app', () => {
     )
 
     expect(screen.getByText(/Selected Slip/i)).toBeInTheDocument()
-    expect(screen.getByText(/LeBron James over 25.5 points/i)).toBeInTheDocument()
+    expect(
+      within(
+        screen.getByRole('complementary', { name: /Selected Slip/i }),
+      ).getByText(/LeBron James over 25.5 points/i),
+    ).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Save to journal/i }))
 
@@ -32,11 +36,18 @@ describe('ProphetPicks app', () => {
 
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: /Soccer/i }))
+    await user.click(
+      within(screen.getByRole('group', { name: /Sport filters/i })).getByRole(
+        'button',
+        { name: 'Soccer' },
+      ),
+    )
 
     expect(screen.getByText(/API-Football soccer/i)).toBeInTheDocument()
-    expect(screen.getByText(/Arsenal/i)).toBeInTheDocument()
-    expect(screen.getByText(/Arsenal to win/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Arsenal' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Add Arsenal to win/i }),
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', {
         name: /Add LeBron James over 25.5 points/i,

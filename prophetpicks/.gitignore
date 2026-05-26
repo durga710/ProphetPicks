@@ -13,6 +13,10 @@ dist-ssr
 coverage/
 screenshots/
 *.local
+.env
+.env.*
+!.env.example
+src/data/generated/*.json
 
 # Editor directories and files
 .vscode/*

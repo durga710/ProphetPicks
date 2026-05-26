@@ -3,6 +3,9 @@ export type MarketType =
   | 'player_rebounds'
   | 'player_assists'
   | 'player_threes'
+  | 'match_result'
+  | 'total_goals'
+  | 'both_teams_score'
 
 export interface PropLeg {
   id: string
@@ -11,10 +14,11 @@ export interface PropLeg {
   eventId: string
   matchup: string
   startsAt: string
-  teamId: string
-  opponentId: string
-  playerId: string
-  playerName: string
+  teamId?: string
+  opponentId?: string
+  playerId?: string
+  playerName?: string
+  subjectName: string
   marketId: string
   marketType: MarketType
   marketLabel: string

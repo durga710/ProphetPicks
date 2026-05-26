@@ -1,73 +1,32 @@
-# React + TypeScript + Vite
+# ProphetPicks
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Private sports parlay research dashboard for scanning edges, building slips, and journaling picks. It is a research tool, not a bet-placement app.
 
-Currently, two official plugins are available:
+## Local App
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The frontend uses local demo data for NBA props and API-Football-shaped soccer markets so the UI works without live credentials.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Soccer API
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+ProphetPicks uses an API-Football adapter for soccer fixture and odds normalization. The API key must stay in local/server-side environment variables and must not be prefixed with `VITE_`.
+
+```bash
+cp .env.example .env
+APIFOOTBALL_KEY=your_key_here npm run sync:soccer -- --league=39 --season=2025 --date=2026-03-07
+```
+
+The sync command writes normalized fixture JSON to `src/data/generated/soccer-fixtures.json`, which is ignored by git. Live odds should be fetched through a server-side job or backend proxy before being passed to the browser.
+
+## Verification
+
+```bash
+npm run lint
+npm test
+npm run build
+npm run test:coverage
 ```

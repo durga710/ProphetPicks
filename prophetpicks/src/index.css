@@ -335,7 +335,7 @@ button.signal-card {
 
 .board-tools {
   display: grid;
-  grid-template-columns: minmax(220px, 0.65fr) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 0.55fr) minmax(210px, auto) minmax(0, 1fr);
   gap: 12px;
   padding: 14px 16px;
   border-bottom: 1px solid #dfe4eb;
@@ -384,6 +384,10 @@ button.signal-card {
   color: #11151b;
   background: #f2d892;
   border-color: #d2a844;
+}
+
+.sport-control button {
+  min-width: 96px;
 }
 
 .table-shell {
