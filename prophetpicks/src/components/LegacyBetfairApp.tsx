@@ -1,10 +1,11 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   CalendarDays,
   ChevronDown,
   ChevronRight,
   CircleDollarSign,
   ClipboardList,
+  LineChart,
   Menu,
   Search,
   ShieldCheck,
@@ -35,6 +36,19 @@ import {
   type ResolvedPrediction,
   type SportKey,
 } from '../data/legacyBetfair'
+import {
+  decimalToAmericanOdds,
+  formatAmericanOdds,
+  formatProbability,
+} from '../domain/odds'
+import {
+  buildOddsQuotes,
+  formatMovement,
+  getCategoryLabel,
+  type OddsBoardCategory,
+  type OddsQuote,
+} from '../domain/oddsBoard'
+import { loadOddsQuotes } from '../data/providers/oddsApi'
 
 type Screen =
   | 'account'
@@ -45,6 +59,7 @@ type Screen =
   | 'teams'
   | 'today'
   | 'predictions'
+  | 'odds'
 type FinanceTab = 'deposits' | 'withdrawals' | 'ledger'
 type BetTypeFilter = 'all' | 'simple' | 'combined'
 type SlipMode = 'simple' | 'combined'
@@ -400,6 +415,14 @@ export function LegacyBetfairApp() {
             Prophet Picks
           </button>
           <button
+            className={screen === 'odds' ? 'active' : ''}
+            type="button"
+            onClick={() => navigate('odds')}
+          >
+            <LineChart size={16} aria-hidden="true" />
+            Odds Board
+          </button>
+          <button
             className={screen === 'today' ? 'active' : ''}
             type="button"
             onClick={() => navigate('today')}
@@ -425,7 +448,8 @@ export function LegacyBetfairApp() {
         {screen !== 'finance' &&
           screen !== 'bets' &&
           screen !== 'account' &&
-          screen !== 'predictions' && (
+          screen !== 'predictions' &&
+          screen !== 'odds' && (
           <SportRail activeSport={activeSport} onChangeSport={changeSport} />
         )}
 
@@ -476,6 +500,10 @@ export function LegacyBetfairApp() {
             onAddPrediction={addPrediction}
             onBuildBestParlay={buildBestParlay}
           />
+        )}
+
+        {screen === 'odds' && (
+          <OddsBoardScreen onAddSlipItem={addSlipItem} />
         )}
 
         {screen === 'bets' && <BetsScreen bets={[...mockBets, ...legacyBets]} />}
@@ -859,19 +887,30 @@ function MarketScreen({
             <span>Back prices</span>
           </div>
           <div className="legacy-odds-grid">
-            {market.selections.map((selection) => (
-              <button
-                className="legacy-odd-tile"
-                key={selection.id}
-                type="button"
-                aria-label={`${selection.side} ${selection.label} at ${formatDecimal(selection.odds)}`}
-                onClick={() => onAddSelection(selection)}
-              >
-                <span>{selection.side}</span>
-                <SelectionLabel event={event} label={selection.label} />
-                <b>{formatDecimal(selection.odds)}</b>
-              </button>
-            ))}
+            {market.selections.map((selection) => {
+              const american = formatAmericanOdds(
+                decimalToAmericanOdds(selection.odds),
+              )
+              const implied = formatProbability(1 / selection.odds)
+
+              return (
+                <button
+                  className="legacy-odd-tile"
+                  key={selection.id}
+                  type="button"
+                  aria-label={`${selection.side} ${selection.label} at ${formatDecimal(selection.odds)}`}
+                  onClick={() => onAddSelection(selection)}
+                >
+                  <span>{selection.side}</span>
+                  <SelectionLabel event={event} label={selection.label} />
+                  <b>{formatDecimal(selection.odds)}</b>
+                  <span className="legacy-odd-tile-meta">
+                    <em>{american}</em>
+                    <em>{implied}</em>
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </article>
       </div>
@@ -1656,5 +1695,228 @@ function BettingSlipDialog({
         )}
       </section>
     </div>
+  )
+}
+
+type OddsBoardSportFilter = 'all' | SportKey
+type OddsBoardCategoryFilter = 'all' | OddsBoardCategory
+
+const ODDS_BOARD_CATEGORIES: OddsBoardCategory[] = [
+  'moneyline',
+  'spread',
+  'total',
+  'props',
+  'futures',
+  'other',
+]
+
+function OddsBoardScreen({
+  onAddSlipItem,
+}: {
+  onAddSlipItem: (item: LegacySlipItem) => void
+}) {
+  const [sportFilter, setSportFilter] = useState<OddsBoardSportFilter>('all')
+  const [categoryFilter, setCategoryFilter] =
+    useState<OddsBoardCategoryFilter>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const baseQuotes = useMemo(() => buildOddsQuotes(), [])
+  const [quotes, setQuotes] = useState<OddsQuote[]>(baseQuotes)
+  const [providerStatus, setProviderStatus] = useState<string>(
+    'Local demo quotes loaded',
+  )
+
+  useEffect(() => {
+    let cancelled = false
+
+    loadOddsQuotes()
+      .then((result) => {
+        if (cancelled) {
+          return
+        }
+
+        if (result.quotes.length > 0) {
+          setQuotes(result.quotes)
+        }
+
+        setProviderStatus(result.statusLabel)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProviderStatus('Provider offline - showing local demo quotes')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const visibleQuotes = useMemo(
+    () =>
+      quotes.filter((quote) => {
+        const sportMatches = sportFilter === 'all' || quote.sport === sportFilter
+        const categoryMatches =
+          categoryFilter === 'all' || quote.category === categoryFilter
+        const searchText = [
+          quote.matchup,
+          quote.marketLabel,
+          quote.selectionLabel,
+          quote.sportLabel,
+          quote.source,
+        ].join(' ')
+
+        return (
+          sportMatches && categoryMatches && matchesSearch(searchText, searchQuery)
+        )
+      }),
+    [categoryFilter, quotes, searchQuery, sportFilter],
+  )
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, OddsQuote[]>()
+
+    for (const quote of visibleQuotes) {
+      const key = `${quote.eventId}::${quote.marketId}`
+      const bucket = map.get(key) ?? []
+      bucket.push(quote)
+      map.set(key, bucket)
+    }
+
+    return Array.from(map.values())
+  }, [visibleQuotes])
+
+  return (
+    <section className="legacy-stage legacy-odds-board" aria-labelledby="odds-board-title">
+      <div className="legacy-title-row">
+        <div>
+          <p>Dense sportsbook quotes</p>
+          <h1 id="odds-board-title">Odds Board</h1>
+        </div>
+        <div className="legacy-search">
+          <Search size={16} aria-hidden="true" />
+          <input
+            aria-label="Search odds"
+            placeholder="Search matchup, market, or source"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="legacy-odds-status">
+        <span>{providerStatus}</span>
+        <span>
+          {visibleQuotes.length} of {quotes.length} odds shown
+        </span>
+      </div>
+
+      <div className="legacy-prediction-filters" aria-label="Odds board filters">
+        <label>
+          Sport
+          <select
+            value={sportFilter}
+            onChange={(event) =>
+              setSportFilter(event.target.value as OddsBoardSportFilter)
+            }
+          >
+            <option value="all">All Sports</option>
+            {sports.map((sport) => (
+              <option key={sport.key} value={sport.key}>
+                {sport.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Market
+          <select
+            value={categoryFilter}
+            onChange={(event) =>
+              setCategoryFilter(event.target.value as OddsBoardCategoryFilter)
+            }
+          >
+            <option value="all">All Markets</option>
+            {ODDS_BOARD_CATEGORIES.map((category) => (
+              <option key={category} value={category}>
+                {getCategoryLabel(category)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="legacy-odds-board-stack">
+        {grouped.length === 0 && (
+          <div className="legacy-empty">No odds match those filters.</div>
+        )}
+        {grouped.map((bucket) => {
+          const head = bucket[0]
+          const key = `${head.eventId}-${head.marketId}`
+
+          return (
+            <article className="legacy-odds-board-card" key={key}>
+              <header>
+                <p>
+                  {head.sportLabel} - {head.league}
+                </p>
+                <h2>{head.matchup}</h2>
+                <span>
+                  {head.marketLabel} - {getCategoryLabel(head.category)} - {head.startLabel}
+                </span>
+              </header>
+              <div className="legacy-odds-board-tile-grid">
+                {bucket.map((quote) => (
+                  <OddsBoardTile
+                    key={quote.id}
+                    quote={quote}
+                    onAdd={() => onAddSlipItem(quote.slipItem)}
+                  />
+                ))}
+              </div>
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function OddsBoardTile({
+  quote,
+  onAdd,
+}: {
+  quote: OddsQuote
+  onAdd: () => void
+}) {
+  const updatedLabel = new Date(quote.updatedAt).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  return (
+    <button
+      className="legacy-odds-board-tile"
+      type="button"
+      aria-label={`Add ${quote.selectionLabel} at decimal ${formatDecimal(quote.decimalOdds)} to slip`}
+      onClick={onAdd}
+    >
+      <strong>{quote.selectionLabel}</strong>
+      <span className="legacy-odds-board-prices">
+        <em>
+          Dec <b>{formatDecimal(quote.decimalOdds)}</b>
+        </em>
+        <em>
+          Am <b>{formatAmericanOdds(quote.americanOdds)}</b>
+        </em>
+        <em>
+          Imp <b>{formatProbability(quote.impliedProbability)}</b>
+        </em>
+      </span>
+      <span className="legacy-odds-board-meta">
+        <em>Move {formatMovement(quote.movement)}</em>
+        <em>{quote.source}</em>
+        <em>Updated {updatedLabel}</em>
+      </span>
+    </button>
   )
 }

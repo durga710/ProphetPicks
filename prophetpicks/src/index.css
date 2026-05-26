@@ -2058,3 +2058,143 @@ tr.is-focused {
     font-size: 30px;
   }
 }
+
+.legacy-odd-tile-meta {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.legacy-odd-tile-meta em {
+  padding: 2px 6px;
+  color: #0c1523;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(12, 21, 35, 0.18);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 820;
+  font-style: normal;
+}
+
+.legacy-odds-board {
+  display: grid;
+  gap: 14px;
+}
+
+.legacy-odds-status {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  color: #d8e6fb;
+  background: rgba(13, 24, 38, 0.78);
+  border: 1px solid rgba(103, 151, 205, 0.32);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.legacy-odds-board-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.legacy-odds-board-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  background: rgba(7, 12, 20, 0.78);
+  border: 1px solid rgba(105, 151, 205, 0.32);
+  border-radius: 7px;
+}
+
+.legacy-odds-board-card header {
+  display: grid;
+  gap: 4px;
+}
+
+.legacy-odds-board-card header p {
+  margin: 0;
+  color: #92aed0;
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.legacy-odds-board-card header h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 18px;
+}
+
+.legacy-odds-board-card header span {
+  color: #9db9d8;
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.legacy-odds-board-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.legacy-odds-board-tile {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 12px;
+  color: #06101c;
+  text-align: left;
+  background: #d8e8fa;
+  border: 1px solid #b6d3f1;
+  border-radius: 7px;
+}
+
+.legacy-odds-board-tile:hover {
+  background: #f2d486;
+  border-color: #ffe8a4;
+}
+
+.legacy-odds-board-tile strong {
+  color: #06101c;
+  font-size: 14px;
+  font-weight: 880;
+}
+
+.legacy-odds-board-prices,
+.legacy-odds-board-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.legacy-odds-board-prices em,
+.legacy-odds-board-meta em {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  padding: 2px 8px;
+  color: #0c1523;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(12, 21, 35, 0.16);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 820;
+  font-style: normal;
+}
+
+.legacy-odds-board-prices em b {
+  color: #06101c;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.legacy-odds-board-meta em {
+  background: rgba(13, 24, 38, 0.92);
+  color: #f3f7ff;
+  border-color: rgba(105, 151, 205, 0.4);
+}
