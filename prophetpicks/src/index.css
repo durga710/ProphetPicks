@@ -1062,6 +1062,34 @@ tr.is-focused {
   padding: 28px 0 34px;
 }
 
+.legacy-sport-rail {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.legacy-sport-rail button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  color: #d8e8fb;
+  background: rgba(16, 32, 51, 0.92);
+  border: 1px solid rgba(103, 151, 205, 0.42);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 860;
+}
+
+.legacy-sport-rail button.active,
+.legacy-sport-rail button:hover {
+  color: #08111f;
+  background: #f2d486;
+  border-color: #ffe8a4;
+}
+
 .legacy-stage {
   min-height: 560px;
   padding: 16px;
@@ -1502,6 +1530,45 @@ tr.is-focused {
 .legacy-table .negative {
   color: #ff9a90;
   font-weight: 850;
+}
+
+.legacy-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.legacy-team-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 68px;
+  padding: 12px;
+  background: rgba(7, 12, 20, 0.76);
+  border: 1px solid rgba(105, 151, 205, 0.28);
+  border-radius: 7px;
+}
+
+.legacy-team-card strong {
+  display: block;
+  overflow: hidden;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 880;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legacy-team-card span {
+  display: block;
+  overflow: hidden;
+  color: #9db9d8;
+  font-size: 12px;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .legacy-finance-tabs {

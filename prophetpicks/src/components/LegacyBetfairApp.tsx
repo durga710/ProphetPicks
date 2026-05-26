@@ -17,17 +17,25 @@ import {
 import {
   legacyBets,
   legacyDeposits,
-  legacyEvents,
-  legacyMarkets,
+  legacyLedger,
+  legacyTeams,
   legacyWithdrawals,
+  getEventsForSport,
+  getMarketsForEvent,
+  getSport,
+  sports,
   type FinanceRow,
+  type LedgerRow,
+  type LegacyBet,
   type LegacyEvent,
   type LegacyMarket,
   type LegacySlipItem,
+  type LegacyTeam,
+  type SportKey,
 } from '../data/legacyBetfair'
 
-type Screen = 'events' | 'market' | 'bets' | 'finance'
-type FinanceTab = 'deposits' | 'withdrawals'
+type Screen = 'events' | 'market' | 'bets' | 'finance' | 'teams'
+type FinanceTab = 'deposits' | 'withdrawals' | 'ledger'
 
 function eventName(event: LegacyEvent): string {
   return `${event.home} VS ${event.away}`
@@ -42,31 +50,57 @@ function combinedPrice(items: LegacySlipItem[]): number {
 }
 
 function financeRowsTitle(tab: FinanceTab): string {
+  if (tab === 'ledger') {
+    return 'Account Ledger'
+  }
+
   return tab === 'deposits' ? 'My Deposits' : 'My Withdrawals'
 }
 
 export function LegacyBetfairApp() {
+  const [activeSport, setActiveSport] = useState<SportKey>('soccer')
   const [screen, setScreen] = useState<Screen>('events')
   const [catalogEvent, setCatalogEvent] = useState<LegacyEvent | null>(null)
-  const [selectedEvent, setSelectedEvent] = useState<LegacyEvent>(legacyEvents[0])
+  const [selectedEvent, setSelectedEvent] = useState<LegacyEvent>(
+    getEventsForSport('soccer')[0],
+  )
   const [selectedMarket, setSelectedMarket] = useState<LegacyMarket>(
-    legacyMarkets[0],
+    getMarketsForEvent(getEventsForSport('soccer')[0])[0],
   )
   const [slipItems, setSlipItems] = useState<LegacySlipItem[]>([])
   const [isSlipOpen, setIsSlipOpen] = useState(false)
   const [isConfirmed, setIsConfirmed] = useState(false)
   const [status, setStatus] = useState('')
   const [financeTab, setFinanceTab] = useState<FinanceTab>('deposits')
+  const [mockBets, setMockBets] = useState<LegacyBet[]>([])
+  const [mockLedgerRows, setMockLedgerRows] = useState<LedgerRow[]>([])
+
+  const activeEvents = useMemo(() => getEventsForSport(activeSport), [activeSport])
+  const activeSportDefinition = getSport(activeSport)
 
   const groupedEvents = useMemo(
     () =>
-      legacyEvents.reduce<Record<string, LegacyEvent[]>>((groups, event) => {
+      activeEvents.reduce<Record<string, LegacyEvent[]>>((groups, event) => {
         groups[event.dateLabel] = [...(groups[event.dateLabel] ?? []), event]
         return groups
       }, {}),
-    [],
+    [activeEvents],
   )
-  const groups = ['Group A', 'Group B', 'Group C', 'Group D', 'Group F', 'Group G', 'Group H']
+
+  function changeSport(nextSport: SportKey): void {
+    const nextEvents = getEventsForSport(nextSport)
+    const nextEvent = nextEvents[0]
+
+    setActiveSport(nextSport)
+    setScreen('events')
+    setCatalogEvent(null)
+    setStatus('')
+
+    if (nextEvent) {
+      setSelectedEvent(nextEvent)
+      setSelectedMarket(getMarketsForEvent(nextEvent)[0])
+    }
+  }
 
   function openCatalog(event: LegacyEvent): void {
     setCatalogEvent(event)
@@ -100,6 +134,39 @@ export function LegacyBetfairApp() {
       return
     }
 
+    const price = combinedPrice(slipItems)
+    const stake = 10
+    const primaryItem = slipItems[0]
+    const createdId = `mock-${mockBets.length + 1}`
+
+    setMockBets((bets) => [
+      {
+        id: createdId,
+        match: eventName(primaryItem.event),
+        market:
+          slipItems.length > 1
+            ? `${slipItems.length}-leg parlay`
+            : primaryItem.market.label,
+        type: slipItems.length > 1 ? 'Combined' : 'Simple',
+        stake: `$${stake.toFixed(2)}`,
+        price: formatDecimal(price),
+        profitLoss: `$${(price * stake - stake).toFixed(2)}`,
+        date: '2026-05-26 18:00',
+        status: 'Pending Mock',
+      },
+      ...bets,
+    ])
+    setMockLedgerRows((rows) => [
+      {
+        id: `ledger-${createdId}`,
+        date: '2026-05-26',
+        description: 'Mock stake reserved',
+        debit: `$${stake.toFixed(2)}`,
+        credit: '-',
+        balance: '$20,020.00',
+      },
+      ...rows,
+    ])
     setStatus('Mock bet saved locally. No live wager was placed.')
   }
 
@@ -151,6 +218,14 @@ export function LegacyBetfairApp() {
             <Trophy size={16} aria-hidden="true" />
             Competitions & Leagues
           </button>
+          <button
+            className={screen === 'teams' ? 'active' : ''}
+            type="button"
+            onClick={() => setScreen('teams')}
+          >
+            <Trophy size={16} aria-hidden="true" />
+            Teams
+          </button>
           <button type="button" onClick={() => setScreen('events')}>
             <CalendarDays size={16} aria-hidden="true" />
             Today's Matches
@@ -170,10 +245,15 @@ export function LegacyBetfairApp() {
       </header>
 
       <main className="legacy-main">
+        {screen !== 'finance' && screen !== 'bets' && (
+          <SportRail activeSport={activeSport} onChangeSport={changeSport} />
+        )}
+
         {screen === 'events' && (
           <EventsScreen
+            sport={activeSportDefinition}
             groupedEvents={groupedEvents}
-            groups={groups}
+            groups={activeSportDefinition.groups}
             onOpenCatalog={openCatalog}
           />
         )}
@@ -187,11 +267,16 @@ export function LegacyBetfairApp() {
           />
         )}
 
-        {screen === 'bets' && <BetsScreen />}
+        {screen === 'teams' && (
+          <TeamsScreen teams={legacyTeams} />
+        )}
+
+        {screen === 'bets' && <BetsScreen bets={[...mockBets, ...legacyBets]} />}
 
         {screen === 'finance' && (
           <FinanceScreen
             activeTab={financeTab}
+            ledgerRows={[...mockLedgerRows, ...legacyLedger]}
             onTabChange={setFinanceTab}
           />
         )}
@@ -243,11 +328,37 @@ export function LegacyBetfairApp() {
   )
 }
 
+function SportRail({
+  activeSport,
+  onChangeSport,
+}: {
+  activeSport: SportKey
+  onChangeSport: (sport: SportKey) => void
+}) {
+  return (
+    <nav className="legacy-sport-rail" aria-label="Sports">
+      {sports.map((sport) => (
+        <button
+          className={sport.key === activeSport ? 'active' : ''}
+          key={sport.key}
+          type="button"
+          aria-label={sport.label}
+          onClick={() => onChangeSport(sport.key)}
+        >
+          {sport.label}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
 function EventsScreen({
+  sport,
   groupedEvents,
   groups,
   onOpenCatalog,
 }: {
+  sport: ReturnType<typeof getSport>
   groupedEvents: Record<string, LegacyEvent[]>
   groups: string[]
   onOpenCatalog: (event: LegacyEvent) => void
@@ -263,7 +374,7 @@ function EventsScreen({
       <div className="legacy-title-row">
         <div>
           <p>Dense Sportsbook Board</p>
-          <h1 id="events-title">UEFA Champions League</h1>
+          <h1 id="events-title">{sport.title}</h1>
         </div>
         <div className="legacy-search" aria-label="Search games">
           <Search size={16} aria-hidden="true" />
@@ -279,8 +390,8 @@ function EventsScreen({
           aria-expanded={isLeagueOpen}
           onClick={() => setIsLeagueOpen((open) => !open)}
         >
-          <span>Soccer</span>
-          <strong>UEFA Champions League</strong>
+          <span>{sport.family}</span>
+          <strong>{sport.title}</strong>
           <small>{eventCount} events</small>
           <ChevronDown size={18} aria-hidden="true" />
         </button>
@@ -291,7 +402,7 @@ function EventsScreen({
               {group}
             </button>
           ))}
-          <button type="button">Bets</button>
+          {!groups.includes('Bets') && <button type="button">Bets</button>}
         </div>
       </div>
 
@@ -335,7 +446,7 @@ function EventsScreen({
                       />
                     </span>
                     <span className="legacy-market-count">
-                      {legacyMarkets.length} markets
+                      {getMarketsForEvent(event).length} markets
                     </span>
                     <ChevronRight size={16} aria-hidden="true" />
                   </button>
@@ -388,6 +499,8 @@ function MarketScreen({
   onOpenMarket: (event: LegacyEvent, market: LegacyMarket) => void
   onAddSelection: (selection: LegacyMarket['selections'][number]) => void
 }) {
+  const markets = getMarketsForEvent(event)
+
   return (
     <section className="legacy-stage legacy-market" aria-labelledby="market-event">
       <div className="legacy-market-header">
@@ -414,7 +527,7 @@ function MarketScreen({
             {event.dateLabel} at {event.time}
           </span>
         </div>
-        <button type="button" onClick={() => onOpenMarket(event, legacyMarkets[0])}>
+        <button type="button" onClick={() => onOpenMarket(event, markets[0])}>
           Refresh Markets
         </button>
       </div>
@@ -422,7 +535,7 @@ function MarketScreen({
       <div className="legacy-market-grid">
         <aside className="legacy-catalog-panel" aria-label="Market Catalog">
           <h2>Market Catalog</h2>
-          {legacyMarkets.map((catalogMarket) => (
+          {markets.map((catalogMarket) => (
             <button
               className={catalogMarket.id === market.id ? 'active' : ''}
               key={catalogMarket.id}
@@ -490,7 +603,42 @@ function SelectionLabel({ event, label }: { event: LegacyEvent; label: string })
   return <strong>{label}</strong>
 }
 
-function BetsScreen() {
+function TeamsScreen({ teams }: { teams: LegacyTeam[] }) {
+  return (
+    <section className="legacy-stage" aria-labelledby="teams-title">
+      <div className="legacy-table-header">
+        <div>
+          <p>Catalog</p>
+          <h1 id="teams-title">Team Directory</h1>
+        </div>
+        <div className="legacy-search compact">
+          <Search size={15} aria-hidden="true" />
+          <input aria-label="Search teams" placeholder="Search teams" />
+        </div>
+      </div>
+      <div className="legacy-team-grid">
+        {teams.map((team) => (
+          <article className="legacy-team-card" key={team.id}>
+            <TeamCrest
+              label={team.name}
+              code={team.code}
+              primary={team.primary}
+              secondary={team.secondary}
+            />
+            <div>
+              <strong>{team.name}</strong>
+              <span>
+                {team.sportLabel} - {team.league}
+              </span>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function BetsScreen({ bets }: { bets: LegacyBet[] }) {
   return (
     <section className="legacy-stage" aria-labelledby="bets-title">
       <div className="legacy-table-header">
@@ -524,11 +672,12 @@ function BetsScreen() {
               <th>Stake</th>
               <th>Price</th>
               <th>Profit/Loss</th>
+              <th>Status</th>
               <th>Date</th>
             </tr>
           </thead>
           <tbody>
-            {legacyBets.map((bet) => (
+            {bets.map((bet) => (
               <tr key={bet.id}>
                 <td>{bet.match}</td>
                 <td>{bet.market}</td>
@@ -538,6 +687,7 @@ function BetsScreen() {
                 <td className={bet.profitLoss.startsWith('+') ? 'positive' : 'negative'}>
                   {bet.profitLoss}
                 </td>
+                <td>{bet.status}</td>
                 <td>{bet.date}</td>
               </tr>
             ))}
@@ -550,9 +700,11 @@ function BetsScreen() {
 
 function FinanceScreen({
   activeTab,
+  ledgerRows,
   onTabChange,
 }: {
   activeTab: FinanceTab
+  ledgerRows: LedgerRow[]
   onTabChange: (tab: FinanceTab) => void
 }) {
   const rows = activeTab === 'deposits' ? legacyDeposits : legacyWithdrawals
@@ -580,17 +732,60 @@ function FinanceScreen({
           >
             Withdrawals
           </button>
+          <button
+            className={activeTab === 'ledger' ? 'active' : ''}
+            type="button"
+            onClick={() => onTabChange('ledger')}
+          >
+            Ledger
+          </button>
         </div>
       </div>
-      <div className="legacy-table-tools">
-        <span>Show 10 entries</span>
-        <div className="legacy-search compact">
-          <Search size={15} aria-hidden="true" />
-          <input aria-label={`Search ${financeRowsTitle(activeTab)}`} placeholder="Search" />
-        </div>
-      </div>
-      <FinanceTable rows={rows} />
+
+      {activeTab === 'ledger' ? (
+        <LedgerTable rows={ledgerRows} />
+      ) : (
+        <>
+          <div className="legacy-table-tools">
+            <span>Show 10 entries</span>
+            <div className="legacy-search compact">
+              <Search size={15} aria-hidden="true" />
+              <input aria-label={`Search ${financeRowsTitle(activeTab)}`} placeholder="Search" />
+            </div>
+          </div>
+          <FinanceTable rows={rows} />
+        </>
+      )}
     </section>
+  )
+}
+
+function LedgerTable({ rows }: { rows: LedgerRow[] }) {
+  return (
+    <div className="legacy-table-wrap">
+      <table className="legacy-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Debit</th>
+            <th>Credit</th>
+            <th>Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>{row.date}</td>
+              <td>{row.description}</td>
+              <td>{row.debit}</td>
+              <td>{row.credit}</td>
+              <td>{row.balance}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -631,6 +826,7 @@ function CatalogDialog({
   onOpenMarket: (event: LegacyEvent, market: LegacyMarket) => void
 }) {
   const titleId = `catalog-${event.id}`
+  const markets = getMarketsForEvent(event)
 
   return (
     <div className="legacy-modal-backdrop">
@@ -654,7 +850,7 @@ function CatalogDialog({
           {event.league} - {event.time}
         </span>
         <div className="legacy-catalog-list">
-          {legacyMarkets.map((market) => (
+          {markets.map((market) => (
             <button
               key={market.id}
               type="button"

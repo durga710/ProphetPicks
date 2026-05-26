@@ -92,4 +92,109 @@ describe('ProphetPicks imported Betfair market experience', () => {
     await user.click(screen.getByRole('button', { name: /Withdrawals/i }))
     expect(screen.getByRole('heading', { name: /My Withdrawals/i })).toBeInTheDocument()
   })
+
+  it('renders every major sport rail and a full team directory', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    for (const sport of [
+      'NFL',
+      'NBA',
+      'MLB',
+      'NHL',
+      'Soccer',
+      'NCAAF',
+      'NCAAB',
+      'Tennis',
+      'Golf',
+      'UFC',
+      'Boxing',
+      'Formula 1',
+      'Cricket',
+      'Esports',
+    ]) {
+      expect(screen.getByRole('button', { name: sport })).toBeInTheDocument()
+    }
+
+    await user.click(screen.getByRole('button', { name: /Teams/i }))
+
+    expect(screen.getByRole('heading', { name: /Team Directory/i })).toBeInTheDocument()
+    expect(screen.getByText(/Kansas City Chiefs/i)).toBeInTheDocument()
+    expect(screen.getByText(/Los Angeles Lakers/i)).toBeInTheDocument()
+    expect(screen.getByText(/New York Yankees/i)).toBeInTheDocument()
+    expect(screen.getByText(/Toronto Maple Leafs/i)).toBeInTheDocument()
+  })
+
+  it('switches sports and opens sport-specific betting structures', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'NFL' }))
+
+    expect(screen.getByRole('heading', { name: /NFL/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Kansas City Chiefs crest/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Buffalo Bills crest/i)).toBeInTheDocument()
+
+    await user.click(
+      screen.getByRole('button', {
+        name: /Open Kansas City Chiefs VS Buffalo Bills market/i,
+      }),
+    )
+
+    const catalog = screen.getByRole('dialog', {
+      name: /Kansas City Chiefs VS Buffalo Bills/i,
+    })
+    expect(within(catalog).getByRole('button', { name: /Moneyline/i })).toBeInTheDocument()
+    expect(within(catalog).getByRole('button', { name: /Spread/i })).toBeInTheDocument()
+    expect(within(catalog).getByRole('button', { name: /Total/i })).toBeInTheDocument()
+    expect(within(catalog).getByRole('button', { name: /Player Props/i })).toBeInTheDocument()
+
+    await user.click(within(catalog).getByRole('button', { name: /Spread/i }))
+
+    expect(screen.getByRole('heading', { name: /Spread/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Back Kansas City Chiefs -2.5 at 1.91/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('places an end-to-end mock parlay into history and ledger', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'NFL' }))
+    await user.click(
+      screen.getByRole('button', {
+        name: /Open Kansas City Chiefs VS Buffalo Bills market/i,
+      }),
+    )
+
+    const catalog = screen.getByRole('dialog', {
+      name: /Kansas City Chiefs VS Buffalo Bills/i,
+    })
+    await user.click(within(catalog).getByRole('button', { name: /Moneyline/i }))
+    await user.click(
+      screen.getByRole('button', { name: /Back Kansas City Chiefs at 1.74/i }),
+    )
+
+    const slip = screen.getByRole('dialog', { name: /Betting Slip/i })
+    await user.click(within(slip).getByLabelText(/Confirm mock bet/i))
+    await user.click(within(slip).getByRole('button', { name: /Place Mock Bet/i }))
+
+    expect(screen.getByRole('status')).toHaveTextContent(/Mock bet saved locally/i)
+
+    await user.click(within(slip).getByRole('button', { name: /Close betting slip/i }))
+    await user.click(screen.getByRole('button', { name: /My Bets/i }))
+
+    expect(screen.getByText(/Kansas City Chiefs/i)).toBeInTheDocument()
+    expect(screen.getByText(/Pending Mock/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Financial/i }))
+    await user.click(screen.getByRole('button', { name: /Ledger/i }))
+
+    expect(screen.getByRole('heading', { name: /Account Ledger/i })).toBeInTheDocument()
+    expect(screen.getByText(/Mock stake reserved/i)).toBeInTheDocument()
+  })
 })
