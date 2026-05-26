@@ -3,55 +3,64 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from '../../src/App'
 
-describe('ProphetPicks app', () => {
-  it('renders the command center and saves a slip to the journal', async () => {
-    const user = userEvent.setup()
-
+describe('ProphetPicks imported Betfair market experience', () => {
+  it('renders the English Betfair-style market shell by default', () => {
     render(<App />)
 
     expect(
-      screen.getByRole('heading', { name: /ProphetPicks Command Center/i }),
+      screen.getByRole('heading', { name: /UEFA Champions League/i }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/Find the edge before the slip/i)).toBeInTheDocument()
-
-    await user.click(
-      screen.getByRole('button', { name: /Add LeBron James over 25.5 points/i }),
-    )
-
-    expect(screen.getByText(/Selected Slip/i)).toBeInTheDocument()
-    expect(
-      within(
-        screen.getByRole('complementary', { name: /Selected Slip/i }),
-      ).getByText(/LeBron James over 25.5 points/i),
-    ).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /Save to journal/i }))
-
-    expect(screen.getByText(/Journaled Slips/i)).toBeInTheDocument()
-    expect(screen.getByText(/Slip saved/i)).toBeInTheDocument()
+    expect(screen.getByText(/My Account/i)).toBeInTheDocument()
+    expect(screen.getByText(/My Bets/i)).toBeInTheDocument()
+    expect(screen.getByText(/Betting Slip/i)).toBeInTheDocument()
+    expect(screen.getByText(/Play responsibly/i)).toBeInTheDocument()
   })
 
-  it('filters the board to soccer markets from the soccer API layer', async () => {
+  it('opens an event catalog and adds an odd to the betting slip', async () => {
     const user = userEvent.setup()
 
     render(<App />)
 
     await user.click(
-      within(screen.getByRole('group', { name: /Sport filters/i })).getByRole(
-        'button',
-        { name: 'Soccer' },
-      ),
+      screen.getByRole('button', { name: /Arsenal VS FC Barcelona/i }),
     )
 
-    expect(screen.getByText(/API-Football soccer/i)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Arsenal' })).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /Add Arsenal to win/i }),
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', {
-        name: /Add LeBron James over 25.5 points/i,
-      }),
-    ).not.toBeInTheDocument()
+    const catalog = screen.getByRole('dialog', {
+      name: /Arsenal VS FC Barcelona/i,
+    })
+    expect(within(catalog).getByText(/Market Catalog/i)).toBeInTheDocument()
+
+    await user.click(within(catalog).getByRole('button', { name: /To Qualify/i }))
+    expect(screen.getByRole('heading', { name: /To Qualify/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Back Arsenal at 4/i }))
+
+    const slip = screen.getByRole('dialog', { name: /Betting Slip/i })
+    expect(within(slip).getByText(/Arsenal/i)).toBeInTheDocument()
+    expect(within(slip).getByText(/Combined/i)).toBeInTheDocument()
+
+    await user.click(within(slip).getByLabelText(/Confirm mock bet/i))
+    await user.click(within(slip).getByRole('button', { name: /Place Mock Bet/i }))
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /Mock bet saved locally/i,
+    )
+  })
+
+  it('shows imported betting history and finance screens in English', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /My Bets/i }))
+    expect(screen.getByRole('heading', { name: /My Bets/i })).toBeInTheDocument()
+    expect(screen.getByText(/Profit\/Loss/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Financial/i }))
+    expect(screen.getByRole('heading', { name: /My Deposits/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Withdrawals/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Withdrawals/i }))
+    expect(screen.getByRole('heading', { name: /My Withdrawals/i })).toBeInTheDocument()
   })
 })
