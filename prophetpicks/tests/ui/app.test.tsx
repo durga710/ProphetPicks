@@ -26,4 +26,21 @@ describe('ProphetPicks app', () => {
     expect(screen.getByText(/Journaled Slips/i)).toBeInTheDocument()
     expect(screen.getByText(/Slip saved/i)).toBeInTheDocument()
   })
+
+  it('filters the board to soccer markets from the soccer API layer', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /Soccer/i }))
+
+    expect(screen.getByText(/API-Football soccer/i)).toBeInTheDocument()
+    expect(screen.getByText(/Arsenal/i)).toBeInTheDocument()
+    expect(screen.getByText(/Arsenal to win/i)).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', {
+        name: /Add LeBron James over 25.5 points/i,
+      }),
+    ).not.toBeInTheDocument()
+  })
 })
