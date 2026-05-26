@@ -37,6 +37,31 @@ import {
 type Screen = 'account' | 'events' | 'market' | 'bets' | 'finance' | 'teams' | 'today'
 type FinanceTab = 'deposits' | 'withdrawals' | 'ledger'
 type BetTypeFilter = 'all' | 'simple' | 'combined'
+type SlipMode = 'simple' | 'combined'
+type LegalTopic = 'privacy' | 'cookies' | 'rules' | 'terms' | 'minors'
+
+const legalTopics: Record<LegalTopic, { title: string; body: string }> = {
+  privacy: {
+    title: 'Privacy Policy',
+    body: 'ProphetPicks is a personal simulator. It stores mock slips, filters, and bankroll activity locally in the current browser session for product testing.',
+  },
+  cookies: {
+    title: 'Cookie Policy',
+    body: 'This prototype does not use advertising cookies. Future integrations should only add cookies for sign-in, preferences, analytics, or API session safety.',
+  },
+  rules: {
+    title: 'Rules and Regulations',
+    body: 'All tickets shown here are mock bets. Odds, markets, account credits, and settlement rows are simulator data and do not represent live wagering.',
+  },
+  terms: {
+    title: 'Terms and Conditions',
+    body: 'Use ProphetPicks as a research and planning tool only. The app is built for personal testing, bet journaling, and parlay workflow design.',
+  },
+  minors: {
+    title: 'Minor Protection',
+    body: 'ProphetPicks is not intended for minors. Keep betting research tools private, educational, and compliant with local law.',
+  },
+}
 
 function eventName(event: LegacyEvent): string {
   return `${event.home} VS ${event.away}`
@@ -46,8 +71,56 @@ function formatDecimal(odds: number): string {
   return Number.isInteger(odds) ? odds.toString() : odds.toFixed(2)
 }
 
+function formatCurrency(amount: number): string {
+  return `$${amount.toFixed(2)}`
+}
+
+function formatSignedCurrency(amount: number): string {
+  const prefix = amount >= 0 ? '+' : '-'
+
+  return `${prefix}$${Math.abs(amount).toFixed(2)}`
+}
+
+function parseStake(value: string): number {
+  const parsed = Number.parseFloat(value.replace(/[^\d.]/g, ''))
+
+  if (!Number.isFinite(parsed)) {
+    return 0
+  }
+
+  return Math.max(0, Math.min(parsed, 100_000))
+}
+
 function combinedPrice(items: LegacySlipItem[]): number {
   return items.reduce((total, item) => total * item.selection.odds, 1)
+}
+
+function ticketRisk(items: LegacySlipItem[], mode: SlipMode, stake: number): number {
+  return mode === 'simple' ? stake * items.length : stake
+}
+
+function ticketReturn(items: LegacySlipItem[], mode: SlipMode, stake: number): number {
+  if (items.length === 0) {
+    return 0
+  }
+
+  if (mode === 'simple') {
+    return items.reduce((total, item) => total + item.selection.odds * stake, 0)
+  }
+
+  return combinedPrice(items) * stake
+}
+
+function ticketPriceLabel(items: LegacySlipItem[], mode: SlipMode): string {
+  if (items.length === 0) {
+    return '0.00'
+  }
+
+  if (mode === 'simple' && items.length > 1) {
+    return 'Singles'
+  }
+
+  return formatDecimal(mode === 'combined' ? combinedPrice(items) : items[0].selection.odds)
 }
 
 function matchesSearch(searchText: string, query: string): boolean {
@@ -86,6 +159,9 @@ export function LegacyBetfairApp() {
   const [mockBets, setMockBets] = useState<LegacyBet[]>([])
   const [mockLedgerRows, setMockLedgerRows] = useState<LedgerRow[]>([])
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+  const [slipMode, setSlipMode] = useState<SlipMode>('combined')
+  const [stakeInput, setStakeInput] = useState('10.00')
+  const [legalTopic, setLegalTopic] = useState<LegalTopic | null>(null)
 
   const activeEvents = useMemo(() => getEventsForSport(activeSport), [activeSport])
   const activeSportDefinition = getSport(activeSport)
@@ -149,28 +225,47 @@ export function LegacyBetfairApp() {
     setStatus('')
   }
 
+  function refreshMarket(event: LegacyEvent): void {
+    setSelectedEvent(event)
+    setSelectedMarket(getMarketsForEvent(event)[0])
+    setCatalogEvent(null)
+    setStatus(`Markets refreshed for ${eventName(event)}.`)
+  }
+
   function saveMockBet(): void {
     if (!isConfirmed || slipItems.length === 0) {
       return
     }
 
-    const price = combinedPrice(slipItems)
-    const stake = 10
+    const stake = parseStake(stakeInput)
+
+    if (stake <= 0) {
+      setStatus('Enter a stake greater than $0.00 before saving a mock bet.')
+      return
+    }
+
+    const price = ticketPriceLabel(slipItems, slipMode)
+    const risk = ticketRisk(slipItems, slipMode, stake)
+    const returnValue = ticketReturn(slipItems, slipMode, stake)
     const primaryItem = slipItems[0]
     const createdId = `mock-${mockBets.length + 1}`
+    const isMultiLeg = slipItems.length > 1
+    const ticketType = slipMode === 'combined' ? 'Combined' : 'Simple'
 
     setMockBets((bets) => [
       {
         id: createdId,
         match: eventName(primaryItem.event),
         market:
-          slipItems.length > 1
+          slipMode === 'combined' && isMultiLeg
             ? `${slipItems.length}-leg parlay`
-            : primaryItem.market.label,
-        type: slipItems.length > 1 ? 'Combined' : 'Simple',
-        stake: `$${stake.toFixed(2)}`,
-        price: formatDecimal(price),
-        profitLoss: `$${(price * stake - stake).toFixed(2)}`,
+            : slipMode === 'simple' && isMultiLeg
+              ? `${slipItems.length} straight bets`
+              : primaryItem.market.label,
+        type: ticketType,
+        stake: formatCurrency(risk),
+        price,
+        profitLoss: formatSignedCurrency(returnValue - risk),
         date: '2026-05-26 18:00',
         status: 'Pending Mock',
       },
@@ -181,13 +276,15 @@ export function LegacyBetfairApp() {
         id: `ledger-${createdId}`,
         date: '2026-05-26',
         description: 'Mock stake reserved',
-        debit: `$${stake.toFixed(2)}`,
+        debit: formatCurrency(risk),
         credit: '-',
-        balance: '$20,020.00',
+        balance: formatCurrency(20_030 - risk),
       },
       ...rows,
     ])
-    setStatus('Mock bet saved locally. No live wager was placed.')
+    setStatus(
+      `Mock bet saved locally. Estimated return ${formatCurrency(returnValue)}. No live wager was placed.`,
+    )
   }
 
   return (
@@ -311,6 +408,7 @@ export function LegacyBetfairApp() {
             event={selectedEvent}
             market={selectedMarket}
             onOpenMarket={openMarket}
+            onRefreshMarket={refreshMarket}
             onAddSelection={addSelection}
           />
         )}
@@ -333,11 +431,18 @@ export function LegacyBetfairApp() {
 
       <footer className="legacy-footer">
         <div>
-          <a href="#privacy">Privacy Policy</a>
-          <a href="#cookies">Cookie Policy</a>
-          <a href="#rules">Rules and Regulations</a>
-          <a href="#terms">Terms and Conditions</a>
-          <a href="#minors">Minor Protection</a>
+          {(Object.keys(legalTopics) as LegalTopic[]).map((topic) => (
+            <a
+              href={`#${topic}`}
+              key={topic}
+              onClick={(event) => {
+                event.preventDefault()
+                setLegalTopic(topic)
+              }}
+            >
+              {legalTopics[topic].title}
+            </a>
+          ))}
         </div>
         <span>
           <ShieldCheck size={16} aria-hidden="true" />
@@ -368,16 +473,30 @@ export function LegacyBetfairApp() {
         />
       )}
 
+      {legalTopic && (
+        <LegalDialog topic={legalTopic} onClose={() => setLegalTopic(null)} />
+      )}
+
       {isSlipOpen && (
         <BettingSlipDialog
           items={slipItems}
           isConfirmed={isConfirmed}
+          mode={slipMode}
+          stakeInput={stakeInput}
           status={status}
           onConfirmChange={setIsConfirmed}
           onClose={() => setIsSlipOpen(false)}
+          onModeChange={(mode) => {
+            setSlipMode(mode)
+            setIsConfirmed(false)
+          }}
           onRemove={(index) =>
             setSlipItems((items) => items.filter((_, itemIndex) => itemIndex !== index))
           }
+          onStakeChange={(stake) => {
+            setStakeInput(stake)
+            setIsConfirmed(false)
+          }}
           onSave={saveMockBet}
         />
       )}
@@ -616,11 +735,13 @@ function MarketScreen({
   event,
   market,
   onOpenMarket,
+  onRefreshMarket,
   onAddSelection,
 }: {
   event: LegacyEvent
   market: LegacyMarket
   onOpenMarket: (event: LegacyEvent, market: LegacyMarket) => void
+  onRefreshMarket: (event: LegacyEvent) => void
   onAddSelection: (selection: LegacyMarket['selections'][number]) => void
 }) {
   const markets = getMarketsForEvent(event)
@@ -651,7 +772,7 @@ function MarketScreen({
             {event.dateLabel} at {event.time}
           </span>
         </div>
-        <button type="button" onClick={() => onOpenMarket(event, markets[0])}>
+        <button type="button" onClick={() => onRefreshMarket(event)}>
           Refresh Markets
         </button>
       </div>
@@ -1166,26 +1287,68 @@ function CatalogDialog({
   )
 }
 
+function LegalDialog({
+  topic,
+  onClose,
+}: {
+  topic: LegalTopic
+  onClose: () => void
+}) {
+  const content = legalTopics[topic]
+
+  return (
+    <div className="legacy-modal-backdrop">
+      <section
+        className="legacy-dialog legacy-legal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`legal-${topic}`}
+      >
+        <button
+          className="legacy-close"
+          type="button"
+          aria-label={`Close ${content.title}`}
+          onClick={onClose}
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
+        <p>Policy</p>
+        <h2 id={`legal-${topic}`}>{content.title}</h2>
+        <div className="legacy-policy-copy">{content.body}</div>
+      </section>
+    </div>
+  )
+}
+
 function BettingSlipDialog({
   items,
   isConfirmed,
+  mode,
+  stakeInput,
   status,
   onConfirmChange,
   onClose,
+  onModeChange,
   onRemove,
+  onStakeChange,
   onSave,
 }: {
   items: LegacySlipItem[]
   isConfirmed: boolean
+  mode: SlipMode
+  stakeInput: string
   status: string
   onConfirmChange: (confirmed: boolean) => void
   onClose: () => void
+  onModeChange: (mode: SlipMode) => void
   onRemove: (index: number) => void
+  onStakeChange: (stake: string) => void
   onSave: () => void
 }) {
-  const price = combinedPrice(items)
-  const stake = 10
-  const potential = items.length > 0 ? price * stake : 0
+  const stake = parseStake(stakeInput)
+  const risk = ticketRisk(items, mode, stake)
+  const returnValue = ticketReturn(items, mode, stake)
+  const profit = returnValue - risk
 
   return (
     <div className="legacy-modal-backdrop">
@@ -1206,8 +1369,20 @@ function BettingSlipDialog({
         <p>Bet Type</p>
         <h2 id="legacy-slip-title">Betting Slip</h2>
         <div className="legacy-slip-toggle" aria-label="Bet type">
-          <button type="button">Simple</button>
-          <button className="active" type="button">
+          <button
+            className={mode === 'simple' ? 'active' : ''}
+            type="button"
+            aria-pressed={mode === 'simple'}
+            onClick={() => onModeChange('simple')}
+          >
+            Simple
+          </button>
+          <button
+            className={mode === 'combined' ? 'active' : ''}
+            type="button"
+            aria-pressed={mode === 'combined'}
+            onClick={() => onModeChange('combined')}
+          >
             Combined
           </button>
         </div>
@@ -1235,15 +1410,24 @@ function BettingSlipDialog({
         <div className="legacy-slip-summary">
           <div>
             <span>Price</span>
-            <strong>{items.length > 0 ? formatDecimal(price) : '0.00'}</strong>
+            <strong>{ticketPriceLabel(items, mode)}</strong>
           </div>
           <label>
             Stake
-            <input aria-label="Stake" readOnly value={`$${stake.toFixed(2)}`} />
+            <input
+              aria-label="Stake"
+              inputMode="decimal"
+              value={stakeInput}
+              onChange={(event) => onStakeChange(event.target.value)}
+            />
           </label>
           <div>
+            <span>Potential Return</span>
+            <strong>{formatCurrency(returnValue)}</strong>
+          </div>
+          <div>
             <span>Potential Profit</span>
-            <strong>${potential.toFixed(2)}</strong>
+            <strong>{formatSignedCurrency(profit)}</strong>
           </div>
         </div>
         <label className="legacy-confirm">

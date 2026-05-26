@@ -274,4 +274,75 @@ describe('ProphetPicks imported Betfair market experience', () => {
     expect(screen.getByText(/Mock bet settlement/i)).toBeInTheDocument()
     expect(screen.queryByText(/Opening mock bankroll/i)).not.toBeInTheDocument()
   })
+
+  it('lets the slip switch ticket type, edit stake, and saves the real stake', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'NFL' }))
+    await user.click(
+      screen.getByRole('button', {
+        name: /Open Kansas City Chiefs VS Buffalo Bills market/i,
+      }),
+    )
+
+    const catalog = screen.getByRole('dialog', {
+      name: /Kansas City Chiefs VS Buffalo Bills/i,
+    })
+    await user.click(within(catalog).getByRole('button', { name: /Moneyline/i }))
+    await user.click(
+      screen.getByRole('button', { name: /Back Kansas City Chiefs at 1.74/i }),
+    )
+
+    const slip = screen.getByRole('dialog', { name: /Betting Slip/i })
+    const simple = within(slip).getByRole('button', { name: /Simple/i })
+    const combined = within(slip).getByRole('button', { name: /Combined/i })
+
+    expect(combined).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(simple)
+    expect(simple).toHaveAttribute('aria-pressed', 'true')
+    expect(combined).toHaveAttribute('aria-pressed', 'false')
+
+    await user.clear(within(slip).getByLabelText(/Stake/i))
+    await user.type(within(slip).getByLabelText(/Stake/i), '25')
+
+    expect(within(slip).getByText('$43.50')).toBeInTheDocument()
+
+    await user.click(within(slip).getByLabelText(/Confirm mock bet/i))
+    await user.click(within(slip).getByRole('button', { name: /Place Mock Bet/i }))
+    await user.click(within(slip).getByRole('button', { name: /Close betting slip/i }))
+    await user.click(screen.getByRole('button', { name: /My Bets/i }))
+
+    const savedBetRow = screen
+      .getByText(/Kansas City Chiefs VS Buffalo Bills/i)
+      .closest('tr')
+    expect(savedBetRow).not.toBeNull()
+    expect(within(savedBetRow as HTMLElement).getByText('$25.00')).toBeInTheDocument()
+    expect(within(savedBetRow as HTMLElement).getByText('1.74')).toBeInTheDocument()
+  })
+
+  it('refreshes market data and opens footer policy dialogs', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(
+      screen.getByRole('button', { name: /Open Arsenal VS FC Barcelona market/i }),
+    )
+    await user.click(
+      within(
+        screen.getByRole('dialog', { name: /Arsenal VS FC Barcelona/i }),
+      ).getByRole('button', { name: /Match Odds/i }),
+    )
+    await user.click(screen.getByRole('button', { name: /Refresh Markets/i }))
+
+    expect(screen.getByRole('status')).toHaveTextContent(/Markets refreshed/i)
+
+    await user.click(screen.getByRole('link', { name: /Privacy Policy/i }))
+
+    expect(screen.getByRole('dialog', { name: /Privacy Policy/i })).toBeInTheDocument()
+    expect(screen.getByText(/personal simulator/i)).toBeInTheDocument()
+  })
 })

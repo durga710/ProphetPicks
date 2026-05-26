@@ -1622,6 +1622,13 @@ tr.is-focused {
   margin-top: 18px;
 }
 
+.legacy-policy-copy {
+  margin-top: 18px;
+  color: #dfe9f6;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 .legacy-finance-tabs {
   display: flex;
   gap: 8px;
@@ -1742,7 +1749,7 @@ tr.is-focused {
 
 .legacy-slip-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 16px;
 }
 

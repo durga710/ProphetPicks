@@ -113,7 +113,7 @@ test.describe('ProphetPicks sportsbook', () => {
     const slip = page.getByRole('dialog', { name: /Betting Slip/i })
     await expect(slip).toBeVisible()
     await expect(slip.getByText(/Kansas City Chiefs/i)).toBeVisible()
-    await expect(slip.getByLabel(/Stake/i)).toHaveValue('$10.00')
+    await expect(slip.getByLabel(/Stake/i)).toHaveValue('10.00')
 
     await slip.getByLabel(/Confirm mock bet/i).check()
     await slip.getByRole('button', { name: /Place Mock Bet/i }).click()
@@ -192,5 +192,42 @@ test.describe('ProphetPicks sportsbook', () => {
     await page.getByLabel(/Search Account Ledger/i).fill('settlement')
     await expect(page.getByText(/Mock bet settlement/i)).toBeVisible()
     await expect(page.getByText(/Opening mock bankroll/i)).toHaveCount(0)
+  })
+
+  test('runs live slip controls, market refresh, and policy dialogs', async ({
+    page,
+  }) => {
+    await page.goto('/')
+
+    await page
+      .getByRole('button', { name: /Open Arsenal VS FC Barcelona market/i })
+      .click()
+    await page
+      .getByRole('dialog', { name: /Arsenal VS FC Barcelona/i })
+      .getByRole('button', { name: /Match Odds/i })
+      .click()
+
+    await page.getByRole('button', { name: /Refresh Markets/i }).click()
+    await expect(page.getByRole('status')).toContainText(/Markets refreshed/i)
+
+    await page.getByRole('button', { name: /Back Arsenal at 4/i }).click()
+    const slip = page.getByRole('dialog', { name: /Betting Slip/i })
+    await expect(slip.getByRole('button', { name: /Combined/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await slip.getByRole('button', { name: /Simple/i }).click()
+    await expect(slip.getByRole('button', { name: /Simple/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await slip.getByLabel(/Stake/i).fill('25')
+    await expect(slip.getByText('$100.00')).toBeVisible()
+
+    await slip.getByRole('button', { name: /Close betting slip/i }).click()
+    await page.getByRole('link', { name: /Privacy Policy/i }).click()
+    const policy = page.getByRole('dialog', { name: /Privacy Policy/i })
+    await expect(policy).toBeVisible()
+    await expect(policy.getByText(/personal simulator/i)).toBeVisible()
   })
 })
