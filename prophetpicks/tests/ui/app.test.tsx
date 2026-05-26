@@ -16,6 +16,35 @@ describe('ProphetPicks imported Betfair market experience', () => {
     expect(screen.getByText(/Play responsibly/i)).toBeInTheDocument()
   })
 
+  it('uses dense logo-led event rows with a league pulldown', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    const pulldown = screen.getByRole('button', {
+      name: /UEFA Champions League.*5 events/i,
+    })
+    expect(pulldown).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByLabelText(/Arsenal crest/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/FC Barcelona crest/i)).toBeInTheDocument()
+    expect(screen.getByText('ARS')).toBeInTheDocument()
+    expect(screen.getByText('BAR')).toBeInTheDocument()
+    expect(screen.queryByText(/^Arsenal VS FC Barcelona$/i)).not.toBeInTheDocument()
+
+    await user.click(pulldown)
+
+    expect(pulldown).toHaveAttribute('aria-expanded', 'false')
+    expect(
+      screen.queryByRole('button', { name: /Arsenal VS FC Barcelona/i }),
+    ).not.toBeInTheDocument()
+
+    await user.click(pulldown)
+
+    expect(
+      screen.getByRole('button', { name: /Arsenal VS FC Barcelona/i }),
+    ).toBeInTheDocument()
+  })
+
   it('opens an event catalog and adds an odd to the betting slip', async () => {
     const user = userEvent.setup()
 

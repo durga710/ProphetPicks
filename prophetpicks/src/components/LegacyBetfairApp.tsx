@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import {
   CalendarDays,
+  ChevronDown,
+  ChevronRight,
   CircleDollarSign,
   ClipboardList,
   Menu,
@@ -250,11 +252,17 @@ function EventsScreen({
   groups: string[]
   onOpenCatalog: (event: LegacyEvent) => void
 }) {
+  const [isLeagueOpen, setIsLeagueOpen] = useState(true)
+  const eventCount = Object.values(groupedEvents).reduce(
+    (count, events) => count + events.length,
+    0,
+  )
+
   return (
     <section className="legacy-stage legacy-events" aria-labelledby="events-title">
       <div className="legacy-title-row">
         <div>
-          <p>Imported Betfair Market</p>
+          <p>Dense Sportsbook Board</p>
           <h1 id="events-title">UEFA Champions League</h1>
         </div>
         <div className="legacy-search" aria-label="Search games">
@@ -263,40 +271,109 @@ function EventsScreen({
         </div>
       </div>
 
-      <div className="legacy-group-strip" aria-label="Competition groups">
-        {groups.map((group) => (
-          <button key={group} type="button">
-            {group}
-          </button>
-        ))}
-        <button type="button">Group Bets</button>
+      <div className="legacy-board-toolbar">
+        <button
+          className="legacy-league-pulldown"
+          type="button"
+          aria-controls="league-event-list"
+          aria-expanded={isLeagueOpen}
+          onClick={() => setIsLeagueOpen((open) => !open)}
+        >
+          <span>Soccer</span>
+          <strong>UEFA Champions League</strong>
+          <small>{eventCount} events</small>
+          <ChevronDown size={18} aria-hidden="true" />
+        </button>
+
+        <div className="legacy-group-strip compact" aria-label="Competition groups">
+          {groups.map((group) => (
+            <button key={group} type="button">
+              {group}
+            </button>
+          ))}
+          <button type="button">Bets</button>
+        </div>
       </div>
 
-      {Object.entries(groupedEvents).map(([date, events]) => (
-        <section className="legacy-date-card" key={date} aria-label={date}>
-          <div className="legacy-date-heading">
-            <CalendarDays size={16} aria-hidden="true" />
-            {date}
+      {isLeagueOpen && (
+        <div className="legacy-event-stack" id="league-event-list">
+          <div className="legacy-board-head" aria-hidden="true">
+            <span>Time</span>
+            <span>Matchup</span>
+            <span>Markets</span>
           </div>
-          <div className="legacy-event-list">
-            {events.map((event) => (
-              <button
-                className="legacy-event-row"
-                key={event.id}
-                type="button"
-                onClick={() => onOpenCatalog(event)}
-              >
-                <span>{event.group}</span>
-                <strong>{eventName(event)}</strong>
-                <small>
-                  {event.time} - {event.venue}
-                </small>
-              </button>
-            ))}
-          </div>
-        </section>
-      ))}
+
+          {Object.entries(groupedEvents).map(([date, events]) => (
+            <section className="legacy-date-card compact" key={date} aria-label={date}>
+              <div className="legacy-date-heading">
+                <CalendarDays size={15} aria-hidden="true" />
+                {date}
+              </div>
+              <div className="legacy-event-list dense">
+                {events.map((event) => (
+                  <button
+                    className="legacy-event-row dense"
+                    key={event.id}
+                    type="button"
+                    aria-label={`Open ${eventName(event)} market`}
+                    onClick={() => onOpenCatalog(event)}
+                  >
+                    <span className="legacy-time">{event.time}</span>
+                    <span className="legacy-matchup-logos">
+                      <TeamCrest
+                        label={event.home}
+                        code={event.homeCode}
+                        primary={event.homePrimary}
+                        secondary={event.homeSecondary}
+                      />
+                      <span className="legacy-versus">VS</span>
+                      <TeamCrest
+                        label={event.away}
+                        code={event.awayCode}
+                        primary={event.awayPrimary}
+                        secondary={event.awaySecondary}
+                      />
+                    </span>
+                    <span className="legacy-market-count">
+                      {legacyMarkets.length} markets
+                    </span>
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
     </section>
+  )
+}
+
+function TeamCrest({
+  label,
+  code,
+  primary,
+  secondary,
+}: {
+  label: string
+  code: string
+  primary: string
+  secondary: string
+}) {
+  return (
+    <span className="legacy-team-crest-wrap">
+      <span
+        className="legacy-team-crest"
+        role="img"
+        aria-label={`${label} crest`}
+        style={{
+          '--team-primary': primary,
+          '--team-secondary': secondary,
+        } as CSSProperties}
+      >
+        <span>{code}</span>
+      </span>
+    </span>
   )
 }
 
@@ -316,7 +393,23 @@ function MarketScreen({
       <div className="legacy-market-header">
         <div>
           <p>{event.league}</p>
-          <h1 id="market-event">{eventName(event)}</h1>
+          <h1 id="market-event" aria-label={eventName(event)}>
+            <span className="legacy-market-matchup">
+              <TeamCrest
+                label={event.home}
+                code={event.homeCode}
+                primary={event.homePrimary}
+                secondary={event.homeSecondary}
+              />
+              <span className="legacy-versus">VS</span>
+              <TeamCrest
+                label={event.away}
+                code={event.awayCode}
+                primary={event.awayPrimary}
+                secondary={event.awaySecondary}
+              />
+            </span>
+          </h1>
           <span>
             {event.dateLabel} at {event.time}
           </span>
@@ -356,7 +449,7 @@ function MarketScreen({
                 onClick={() => onAddSelection(selection)}
               >
                 <span>{selection.side}</span>
-                <strong>{selection.label}</strong>
+                <SelectionLabel event={event} label={selection.label} />
                 <b>{formatDecimal(selection.odds)}</b>
               </button>
             ))}
@@ -365,6 +458,36 @@ function MarketScreen({
       </div>
     </section>
   )
+}
+
+function SelectionLabel({ event, label }: { event: LegacyEvent; label: string }) {
+  if (label === event.home) {
+    return (
+      <strong className="legacy-selection-logo">
+        <TeamCrest
+          label={event.home}
+          code={event.homeCode}
+          primary={event.homePrimary}
+          secondary={event.homeSecondary}
+        />
+      </strong>
+    )
+  }
+
+  if (label === event.away) {
+    return (
+      <strong className="legacy-selection-logo">
+        <TeamCrest
+          label={event.away}
+          code={event.awayCode}
+          primary={event.awayPrimary}
+          secondary={event.awaySecondary}
+        />
+      </strong>
+    )
+  }
+
+  return <strong>{label}</strong>
 }
 
 function BetsScreen() {

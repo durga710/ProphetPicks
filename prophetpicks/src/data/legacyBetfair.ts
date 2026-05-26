@@ -5,7 +5,13 @@ export type LegacyEvent = {
   dateLabel: string
   time: string
   home: string
+  homeCode: string
+  homePrimary: string
+  homeSecondary: string
   away: string
+  awayCode: string
+  awayPrimary: string
+  awaySecondary: string
   venue: string
 }
 
@@ -53,7 +59,13 @@ export const legacyEvents: LegacyEvent[] = [
     dateLabel: 'Tuesday, February 16, 2016',
     time: '19:45',
     home: 'Arsenal',
+    homeCode: 'ARS',
+    homePrimary: '#d71920',
+    homeSecondary: '#f7f7f7',
     away: 'FC Barcelona',
+    awayCode: 'BAR',
+    awayPrimary: '#a50044',
+    awaySecondary: '#004d98',
     venue: 'Emirates Stadium',
   },
   {
@@ -63,7 +75,13 @@ export const legacyEvents: LegacyEvent[] = [
     dateLabel: 'Tuesday, February 16, 2016',
     time: '19:45',
     home: 'Roma',
+    homeCode: 'ROM',
+    homePrimary: '#8e1f2f',
+    homeSecondary: '#f0bc42',
     away: 'Real Madrid',
+    awayCode: 'RMA',
+    awayPrimary: '#f7f7f7',
+    awaySecondary: '#c7a13b',
     venue: 'Stadio Olimpico',
   },
   {
@@ -73,7 +91,13 @@ export const legacyEvents: LegacyEvent[] = [
     dateLabel: 'Wednesday, February 17, 2016',
     time: '19:45',
     home: 'Juventus',
+    homeCode: 'JUV',
+    homePrimary: '#111111',
+    homeSecondary: '#f5f5f5',
     away: 'Bayern Munich',
+    awayCode: 'BAY',
+    awayPrimary: '#dc052d',
+    awaySecondary: '#0066b2',
     venue: 'Juventus Stadium',
   },
   {
@@ -83,7 +107,13 @@ export const legacyEvents: LegacyEvent[] = [
     dateLabel: 'Wednesday, February 17, 2016',
     time: '19:45',
     home: 'Paris Saint-Germain',
+    homeCode: 'PSG',
+    homePrimary: '#004170',
+    homeSecondary: '#da291c',
     away: 'Chelsea',
+    awayCode: 'CHE',
+    awayPrimary: '#034694',
+    awaySecondary: '#d1d3d4',
     venue: 'Parc des Princes',
   },
   {
@@ -93,7 +123,13 @@ export const legacyEvents: LegacyEvent[] = [
     dateLabel: 'Thursday, February 18, 2016',
     time: '18:00',
     home: 'Benfica',
+    homeCode: 'BEN',
+    homePrimary: '#e32636',
+    homeSecondary: '#f1c232',
     away: 'Zenit',
+    awayCode: 'ZEN',
+    awayPrimary: '#0097d7',
+    awaySecondary: '#ffffff',
     venue: 'Estadio da Luz',
   },
 ]
