@@ -12,6 +12,8 @@ dist
 dist-ssr
 coverage/
 screenshots/
+playwright-report/
+test-results/
 *.local
 .env
 .env.*
