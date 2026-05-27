@@ -683,11 +683,18 @@ export function LegacyBetfairApp() {
                 eventCount={activeEvents.length}
                 events={activeEvents}
               />
-              <FdFeaturedHero onAddSlipItem={addSlipItem} />
-              <FdPromoStrip />
-              <FdBoostedOddsRail onAddSlipItem={addSlipItem} />
-              <FdTrendingRail onAddSlipItem={addSlipItem} />
+              <FdFeaturedHero sport={activeSport} onAddSlipItem={addSlipItem} />
+              <FdPromoStrip sport={activeSport} />
+              <FdBoostedOddsRail
+                sport={activeSport}
+                onAddSlipItem={addSlipItem}
+              />
+              <FdTrendingRail
+                sport={activeSport}
+                onAddSlipItem={addSlipItem}
+              />
               <FdPopularParlays
+                sport={activeSport}
                 onLoadParlay={(parlayItems) => {
                   setSlipItems(parlayItems)
                   setSlipMode('combined')
@@ -1212,6 +1219,7 @@ function EventsScreen({
                               code={event.homeCode}
                               primary={event.homePrimary}
                               secondary={event.homeSecondary}
+                              logoUrl={event.homeLogoUrl}
                             />
                             {event.home}
                           </span>
@@ -1221,6 +1229,7 @@ function EventsScreen({
                               code={event.awayCode}
                               primary={event.awayPrimary}
                               secondary={event.awaySecondary}
+                              logoUrl={event.awayLogoUrl}
                             />
                             {event.away}
                           </span>
@@ -1284,16 +1293,18 @@ function TeamCrest({
   code,
   primary,
   secondary,
+  logoUrl,
 }: {
   label: string
   code: string
   primary: string
   secondary: string
+  logoUrl?: string
 }) {
   return (
     <span className="legacy-team-crest-wrap">
       <span
-        className="legacy-team-crest"
+        className={`legacy-team-crest ${logoUrl ? 'has-logo' : ''}`}
         role="img"
         aria-label={`${label} crest`}
         style={{
@@ -1301,6 +1312,18 @@ function TeamCrest({
           '--team-secondary': secondary,
         } as CSSProperties}
       >
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onError={(event) => {
+              const target = event.currentTarget
+              target.style.display = 'none'
+            }}
+          />
+        ) : null}
         <span>{code}</span>
       </span>
     </span>
@@ -1336,6 +1359,7 @@ function MarketScreen({
                 code={event.homeCode}
                 primary={event.homePrimary}
                 secondary={event.homeSecondary}
+                logoUrl={event.homeLogoUrl}
               />
               <span className="legacy-versus">VS</span>
               <TeamCrest
@@ -1343,6 +1367,7 @@ function MarketScreen({
                 code={event.awayCode}
                 primary={event.awayPrimary}
                 secondary={event.awaySecondary}
+                logoUrl={event.awayLogoUrl}
               />
             </span>
           </h1>
@@ -1416,6 +1441,7 @@ function SelectionLabel({ event, label }: { event: LegacyEvent; label: string })
           code={event.homeCode}
           primary={event.homePrimary}
           secondary={event.homeSecondary}
+          logoUrl={event.homeLogoUrl}
         />
       </strong>
     )
@@ -1429,6 +1455,7 @@ function SelectionLabel({ event, label }: { event: LegacyEvent; label: string })
           code={event.awayCode}
           primary={event.awayPrimary}
           secondary={event.awaySecondary}
+          logoUrl={event.awayLogoUrl}
         />
       </strong>
     )
@@ -1660,6 +1687,7 @@ function TeamsScreen({ teams }: { teams: LegacyTeam[] }) {
               code={team.code}
               primary={team.primary}
               secondary={team.secondary}
+              logoUrl={team.logoUrl}
             />
             <div>
               <strong>{team.name}</strong>
@@ -2727,19 +2755,209 @@ function useWindowWidth(): number {
 }
 
 // ----- Featured Pick of the Day -----
+type FeaturedPickConfig = {
+  eventId: string
+  marketId: string
+  selectionId: string
+  headline: string
+  body: string
+  bullets: string[]
+}
+
+const FEATURED_PICKS: Partial<Record<SportKey, FeaturedPickConfig>> = {
+  nfl: {
+    eventId: 'chiefs-bills',
+    marketId: 'player-props',
+    selectionId: 'qb-passing',
+    headline: 'Mahomes goes over his passing yards line tonight',
+    body: 'Buffalo has surrendered 250+ pass yards in nine of their last eleven games and now travels cross-country on a short week with both starting safeties banged up. Andy Reid is 14-2 at home off a bye in his career. Patrick is going to throw a lot tonight — it is the easiest spot to attack on the board.',
+    bullets: [
+      'Bills allow 7.4 yards per attempt on the road (28th in the league).',
+      'Mahomes averages 287 pass yards in home primetime games this year.',
+      'Game total opened 47.5 and has ticked up to 49 — books expect points.',
+    ],
+  },
+  soccer: {
+    eventId: 'arsenal-barcelona',
+    marketId: 'match-odds',
+    selectionId: 'home',
+    headline: 'Arsenal lift the Emirates again tonight',
+    body: 'Barcelona is leaning on a patchwork back four with both first-choice centerbacks suspended after the Madrid leg. Arsenal has not dropped a point at home in this competition all season and presses opponents into 14+ turnovers per 90 — exactly the soft spot a depleted Barca defense cannot handle.',
+    bullets: [
+      'Arsenal 4W-0D-0L at the Emirates in this competition.',
+      'Barcelona missing Araujo and Christensen at the back.',
+      'Sharps moved the line from +120 to +100 on Arsenal in the last 18 hours.',
+    ],
+  },
+  nba: {
+    eventId: 'lakers-celtics',
+    marketId: 'moneyline',
+    selectionId: 'home-moneyline',
+    headline: 'Lakers grind one out at Crypto.com',
+    body: 'LeBron and AD are fully healthy out of the All-Star break and Boston is on the back end of a brutal West Coast back-to-back. The Lakers shoot 49% from three at home this season and Crypto.com gets loud after halftime when the home team is within striking distance.',
+    bullets: [
+      'Boston is 4-9 ATS in road back-to-backs this year.',
+      'LeBron averages 28-7-7 in nationally televised home games.',
+      'Total ticked from 224.5 down to 222 — sharps expect a half-court grinder.',
+    ],
+  },
+  nhl: {
+    eventId: 'leafs-bruins',
+    marketId: 'moneyline',
+    selectionId: 'home-moneyline',
+    headline: 'Maple Leafs press the Bruins early at Scotiabank',
+    body: 'Auston Matthews has 7 points in his last 5 vs Boston and the Bruins are playing their third game in four nights. Toronto wins the first-period shot share by 12% in this matchup and trails in expected goals by less than half a goal even when they lose.',
+    bullets: [
+      "Matthews on a five-game point streak with a hat trick last out.",
+      'Boston goaltender on the back end of a back-to-back.',
+      'Toronto is 8-2 SU at home off two days of rest this season.',
+    ],
+  },
+  mlb: {
+    eventId: 'yankees-dodgers',
+    marketId: 'moneyline',
+    selectionId: 'home-moneyline',
+    headline: 'Cole keeps the Dodgers off the board in the Bronx',
+    body: "Gerrit Cole takes the mound off a bullpen day and the Dodgers lineup has gone ice cold against righties this road trip — 19 strikeouts in 30 innings and a .197 team OPS in the last two series. Wind is blowing in at the Stadium tonight too. It is the right side.",
+    bullets: [
+      'Dodgers slash .197/.262/.301 vs RHP on this trip.',
+      'Cole has held LA to 4 ER in 21 career IP at home.',
+      'Forecast: 8 mph wind in from RF, knocks gappers down.',
+    ],
+  },
+  tennis: {
+    eventId: 'alcaraz-sinner',
+    marketId: 'winner',
+    selectionId: 'home-winner',
+    headline: 'Carlos handles Sinner on the clay',
+    body: 'Alcaraz has won four of their last five meetings on clay and Sinner has been quietly managing a wrist niggle since Madrid. Carlos served huge in his quarterfinal and his return numbers on clay this year are absurd.',
+    bullets: [
+      'Alcaraz 4-1 vs Sinner on clay over the last 24 months.',
+      "Sinner's wrist limited him to 58% first serves last round.",
+      'Alcaraz holds 92% of his first-serve points on clay in Paris.',
+    ],
+  },
+  ncaaf: {
+    eventId: 'georgia-alabama',
+    marketId: 'moneyline',
+    selectionId: 'home-moneyline',
+    headline: 'Georgia controls the SEC tiebreaker in Athens',
+    body: 'Bama travels to Sanford off a short week and the Dawgs have not lost at home since 2020. Georgia ranks first in line-of-scrimmage win rate on both sides and the weather is forecast wet — exactly the conditions a ground-and-pound favorite wants.',
+    bullets: [
+      'Georgia 31-1 SU at home over the last five seasons.',
+      'Forecast: steady rain by kickoff, 15 mph winds.',
+      'Alabama starting LT questionable with an ankle.',
+    ],
+  },
+  ncaab: {
+    eventId: 'duke-kansas',
+    marketId: 'moneyline',
+    selectionId: 'away-moneyline',
+    headline: 'Kansas inside the Garden as Duke loses its starting PG',
+    body: 'Duke ruled out PG Tyrese Proctor an hour before tip and the market moved fast from Duke -3 to Kansas -1.5. Bill Self is 18-4 in marquee non-conference games inside MSG and Kansas has the size to bully Duke around the rim without Proctor pushing pace.',
+    bullets: [
+      'Duke PG Tyrese Proctor out (ankle).',
+      'Kansas 6-1 ATS as a road favorite this year.',
+      'Bill Self 18-4 SU at MSG since 2016.',
+    ],
+  },
+  golf: {
+    eventId: 'scheffler-mcilroy',
+    marketId: 'winner',
+    selectionId: 'home-winner',
+    headline: 'Scheffler over McIlroy on opening day at Augusta',
+    body: 'Scheffler leads the field in approach play and Augusta rewards iron specialists. Rory has historically struggled with the back-nine corners and Scheffler is one of the few players who can play conservatively without losing strokes to the field.',
+    bullets: [
+      'Scheffler +2.3 strokes/round on approach this season.',
+      'McIlroy is 0-for-his-last-9 at Augusta in Round 1.',
+      'Wind forecast under 8 mph — pure ball-strikers thrive.',
+    ],
+  },
+  ufc: {
+    eventId: 'makhachev-oliveira',
+    marketId: 'winner',
+    selectionId: 'home-winner',
+    headline: 'Makhachev defends the strap by decision',
+    body: 'Islam has not lost a round in his last three title fights and Charles is at his best off his back when he has space to work submissions. Makhachev grinds and rides on the fence, takes minimal risks, and walks away with all five rounds.',
+    bullets: [
+      'Makhachev landed 12+ ground strikes/round in his last three.',
+      'Oliveira has been knocked down in three of his last five fights.',
+      'Sharp money on Makhachev by decision (currently around even money).',
+    ],
+  },
+  boxing: {
+    eventId: 'crawford-canelo',
+    marketId: 'winner',
+    selectionId: 'home-winner',
+    headline: 'Bud Crawford goes the distance with the champ',
+    body: 'Crawford is faster, longer, and more accurate from both stances. Canelo has not faced a southpaw of this caliber and his head-movement numbers have dipped each of the last three fights. Take Bud on the cards.',
+    bullets: [
+      'Crawford lands 41% of his power shots — top of the division.',
+      'Canelo head-movement avoid rate dropped from 71% to 58%.',
+      'Vegas line opened pick-em and moved to Bud -120.',
+    ],
+  },
+  f1: {
+    eventId: 'verstappen-hamilton',
+    marketId: 'winner',
+    selectionId: 'home-winner',
+    headline: 'Verstappen pulls away at Silverstone',
+    body: 'Max sits on pole with a tenth in hand and Red Bull has the strongest tire-wear data through Friday practice. Hamilton will keep him honest for ten laps but the long-run pace is decisive.',
+    bullets: [
+      'Verstappen FP3 long-run avg: 1:29.6.',
+      'Hamilton FP3 long-run avg: 1:29.9.',
+      'Forecast: dry and 24°C — soft compound favored.',
+    ],
+  },
+  cricket: {
+    eventId: 'india-australia',
+    marketId: 'winner',
+    selectionId: 'home-winner',
+    headline: 'India edge Australia in the day-nighter at the MCG',
+    body: "India's top order has handled the pink ball as well as anyone this cycle, and Australia is missing Cummins for the second match in a row. The pitch at the MCG is playing flat — first-innings 300 is in play.",
+    bullets: [
+      'India 9-2 in day-night ODIs since 2024.',
+      'Cummins ruled out with a calf strain.',
+      'MCG average first-innings score this series: 312.',
+    ],
+  },
+  esports: {
+    eventId: 't1-geng',
+    marketId: 'winner',
+    selectionId: 'home-winner',
+    headline: 'T1 takes the LCK Spring crown',
+    body: 'T1 looks dominant on red side and Faker has the best laning phase in the league against any GenG mid pick. Expect a 3-1 in T1\'s favor with the deciding game won on early-game tempo.',
+    bullets: [
+      'T1 has won the last 4 head-to-heads vs GenG.',
+      'Faker has 9 KDA on Azir this split.',
+      'T1 first-blood rate: 67% on red side in the playoffs.',
+    ],
+  },
+}
+
 function FdFeaturedHero({
+  sport,
   onAddSlipItem,
 }: {
+  sport: SportKey
   onAddSlipItem: (item: LegacySlipItem) => void
 }) {
-  const event = legacyEvents.find((candidate) => candidate.id === 'chiefs-bills')
+  const config = FEATURED_PICKS[sport]
+  if (!config) {
+    return null
+  }
 
+  const event = legacyEvents.find((candidate) => candidate.id === config.eventId)
   if (!event) {
     return null
   }
 
-  const market = getMarketsForEvent(event).find((candidate) => candidate.id === 'player-props')
-  const selection = market?.selections.find((option) => option.id === 'qb-passing')
+  const market = getMarketsForEvent(event).find(
+    (candidate) => candidate.id === config.marketId,
+  )
+  const selection = market?.selections.find(
+    (option) => option.id === config.selectionId,
+  )
 
   if (!market || !selection) {
     return null
@@ -2754,17 +2972,12 @@ function FdFeaturedHero({
         <small>{event.dateLabel} · {event.time} · {event.venue}</small>
       </header>
       <div className="fd-hero-body">
-        <h2>Mahomes goes over his passing yards line tonight</h2>
-        <p>
-          Buffalo has surrendered 250+ pass yards in nine of their last eleven games and now
-          travels cross-country on a short week with both starting safeties banged up. Andy Reid
-          is 14-2 at home off a bye in his career. Patrick is going to throw a lot tonight — it is
-          the easiest spot to attack on the board.
-        </p>
+        <h2>{config.headline}</h2>
+        <p>{config.body}</p>
         <ul>
-          <li>Bills allow 7.4 yards per attempt on the road (28th in the league).</li>
-          <li>Mahomes averages 287 pass yards in home primetime games this year.</li>
-          <li>Game total opened 47.5 and has ticked up to 49 — books expect points.</li>
+          {config.bullets.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
         </ul>
       </div>
       <div className="fd-hero-pick">
@@ -2793,6 +3006,7 @@ type PromoSlot = {
   eyebrow: string
   title: string
   caption: string
+  sportKey?: SportKey | SportKey[]
 }
 
 const PROMO_SLOTS: PromoSlot[] = [
@@ -2808,7 +3022,7 @@ const PROMO_SLOTS: PromoSlot[] = [
     tone: 'navy',
     eyebrow: 'Same Game Parlay Insurance',
     title: 'Get your stake back if one leg busts',
-    caption: '4+ leg SGPs on any NFL or NBA game.',
+    caption: '4+ leg SGPs on any major matchup.',
   },
   {
     id: 'no-sweat-nfl',
@@ -2816,6 +3030,15 @@ const PROMO_SLOTS: PromoSlot[] = [
     eyebrow: 'Daily No-Sweat Bet',
     title: 'Up to $10 back on your first NFL bet',
     caption: 'Refunded as a Bonus Bet if your pick loses.',
+    sportKey: 'nfl',
+  },
+  {
+    id: 'no-sweat-soccer',
+    tone: 'navy',
+    eyebrow: 'Daily No-Sweat Bet',
+    title: 'Up to $10 back on your first soccer bet',
+    caption: 'Refunded as a Bonus Bet if your pick loses.',
+    sportKey: 'soccer',
   },
   {
     id: 'refer',
@@ -2839,36 +3062,104 @@ const PROMO_SLOTS: PromoSlot[] = [
     caption: 'Stack rewards across every sport you play.',
   },
   {
-    id: 'editor-pick',
+    id: 'editor-pick-nfl',
     tone: 'green',
     eyebrow: "Editor's pick of the day",
     title: 'Mahomes O 1.5 passing TDs',
     caption: 'Bills D has allowed 2+ in 9 of their last 11.',
+    sportKey: 'nfl',
+  },
+  {
+    id: 'editor-pick-soccer',
+    tone: 'green',
+    eyebrow: "Editor's pick of the day",
+    title: 'Arsenal to win + BTTS',
+    caption: 'Patchwork Barca backline with two CBs suspended.',
+    sportKey: 'soccer',
+  },
+  {
+    id: 'editor-pick-nba',
+    tone: 'green',
+    eyebrow: "Editor's pick of the day",
+    title: 'Lakers in regulation vs Boston',
+    caption: 'Healthy LeBron + AD at home vs a back-to-back road team.',
+    sportKey: 'nba',
+  },
+  {
+    id: 'editor-pick-nhl',
+    tone: 'green',
+    eyebrow: "Editor's pick of the day",
+    title: 'Matthews anytime goal',
+    caption: '5-game point streak heading into a soft Bruins back-to-back.',
+    sportKey: 'nhl',
+  },
+  {
+    id: 'editor-pick-mlb',
+    tone: 'green',
+    eyebrow: "Editor's pick of the day",
+    title: 'Yankees-Dodgers under 8.5',
+    caption: 'Cole, wind in, cold Dodgers lineup vs righties.',
+    sportKey: 'mlb',
+  },
+  {
+    id: 'editor-pick-tennis',
+    tone: 'green',
+    eyebrow: "Editor's pick of the day",
+    title: 'Alcaraz in straight sets',
+    caption: 'Sinner managing a wrist niggle since Madrid.',
+    sportKey: 'tennis',
   },
 ]
 
-function useRotatingPromos(slotCount = 3, intervalMs = 6000): PromoSlot[] {
-  const [offset, setOffset] = useState(0)
+function slotMatchesSport(slot: PromoSlot, sport: SportKey): boolean {
+  if (!slot.sportKey) {
+    return true
+  }
+  if (Array.isArray(slot.sportKey)) {
+    return slot.sportKey.includes(sport)
+  }
+  return slot.sportKey === sport
+}
+
+function useRotatingPromos(
+  sport: SportKey,
+  slotCount = 3,
+  intervalMs = 6000,
+): PromoSlot[] {
+  const pool = useMemo(
+    () => PROMO_SLOTS.filter((slot) => slotMatchesSport(slot, sport)),
+    [sport],
+  )
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
+    if (pool.length === 0) {
+      return
+    }
     const id = setInterval(() => {
-      setOffset((current) => (current + 1) % PROMO_SLOTS.length)
+      setTick((current) => current + 1)
     }, intervalMs)
 
     return () => clearInterval(id)
-  }, [intervalMs])
+  }, [intervalMs, pool.length])
 
-  return useMemo(
-    () =>
-      Array.from({ length: slotCount }).map(
-        (_, index) => PROMO_SLOTS[(offset + index) % PROMO_SLOTS.length],
-      ),
-    [offset, slotCount],
-  )
+  return useMemo(() => {
+    if (pool.length === 0) {
+      return []
+    }
+    const offset = tick % pool.length
+    return Array.from({ length: Math.min(slotCount, pool.length) }).map(
+      (_, index) => pool[(offset + index) % pool.length],
+    )
+  }, [pool, slotCount, tick])
 }
 
-function FdPromoStrip() {
-  const visible = useRotatingPromos()
+function FdPromoStrip({ sport }: { sport: SportKey }) {
+  const visible = useRotatingPromos(sport)
+
+  if (visible.length === 0) {
+    return null
+  }
 
   return (
     <div className="fd-promo-strip" aria-label="Promotions">
@@ -2937,10 +3228,21 @@ const BOOSTED_ODDS: BoostedOddsRow[] = [
 ]
 
 function FdBoostedOddsRail({
+  sport,
   onAddSlipItem,
 }: {
+  sport: SportKey
   onAddSlipItem: (item: LegacySlipItem) => void
 }) {
+  const visibleBoosts = useMemo(
+    () =>
+      BOOSTED_ODDS.filter((boost) => {
+        const event = legacyEvents.find((candidate) => candidate.id === boost.eventId)
+        return event?.sport === sport
+      }),
+    [sport],
+  )
+
   function addBoosted(boost: BoostedOddsRow): void {
     const event = legacyEvents.find((candidate) => candidate.id === boost.eventId)
     if (!event) {
@@ -2967,6 +3269,10 @@ function FdBoostedOddsRail({
     })
   }
 
+  if (visibleBoosts.length === 0) {
+    return null
+  }
+
   return (
     <section className="fd-boosted-rail" aria-label="Boosted Odds">
       <header>
@@ -2974,7 +3280,7 @@ function FdBoostedOddsRail({
         <small>Limited-time demo boosts</small>
       </header>
       <div className="fd-boosted-track">
-        {BOOSTED_ODDS.map((boost) => (
+        {visibleBoosts.map((boost) => (
           <button
             className="fd-boosted-card"
             key={boost.id}
@@ -3081,10 +3387,25 @@ function resolveSlipItem(
 }
 
 function FdTrendingRail({
+  sport,
   onAddSlipItem,
 }: {
+  sport: SportKey
   onAddSlipItem: (item: LegacySlipItem) => void
 }) {
+  const visibleTrending = useMemo(
+    () =>
+      TRENDING_BETS.filter((bet) => {
+        const event = legacyEvents.find((candidate) => candidate.id === bet.eventId)
+        return event?.sport === sport
+      }),
+    [sport],
+  )
+
+  if (visibleTrending.length === 0) {
+    return null
+  }
+
   return (
     <section className="fd-trending-rail" aria-label="Trending bets">
       <header>
@@ -3092,7 +3413,7 @@ function FdTrendingRail({
         <small>What ProphetPicks players are tailing</small>
       </header>
       <div className="fd-trending-track">
-        {TRENDING_BETS.map((bet) => {
+        {visibleTrending.map((bet) => {
           const item = resolveSlipItem(bet.eventId, bet.marketId, bet.selectionId)
           if (!item) {
             return null
@@ -3165,22 +3486,63 @@ const POPULAR_PARLAYS: PopularParlay[] = [
     ],
   },
   {
-    id: 'parlay-friday-mixer',
-    name: 'Friday night mixer',
-    tag: 'Hockey + tennis longshot',
+    id: 'parlay-nhl-friday',
+    name: 'NHL Friday double',
+    tag: 'Both Atlantic home favorites',
     legs: [
       { eventId: 'leafs-bruins', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Leafs ML' },
       { eventId: 'rangers-avalanche', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Rangers ML' },
-      { eventId: 'alcaraz-sinner', marketId: 'winner', selectionId: 'home-winner', line: 'Alcaraz' },
+    ],
+  },
+  {
+    id: 'parlay-mlb-doubleheader',
+    name: 'MLB doubleheader',
+    tag: 'Two home favorites',
+    legs: [
+      { eventId: 'yankees-dodgers', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Yankees ML' },
+      { eventId: 'braves-cubs', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Braves ML' },
+    ],
+  },
+  {
+    id: 'parlay-ncaa-saturday',
+    name: 'CFB Saturday slate',
+    tag: 'Top 5 home favorites',
+    legs: [
+      { eventId: 'georgia-alabama', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Georgia ML' },
+      { eventId: 'michigan-ohio-state', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Michigan ML' },
+    ],
+  },
+  {
+    id: 'parlay-ncaab-tuesday',
+    name: 'College Hoops Top 25 double',
+    tag: 'Both top-10 home teams',
+    legs: [
+      { eventId: 'duke-kansas', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Duke ML' },
+      { eventId: 'unc-uconn', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'UNC ML' },
     ],
   },
 ]
 
 function FdPopularParlays({
+  sport,
   onLoadParlay,
 }: {
+  sport: SportKey
   onLoadParlay: (items: LegacySlipItem[]) => void
 }) {
+  const visibleParlays = useMemo(
+    () =>
+      POPULAR_PARLAYS.filter((parlay) =>
+        parlay.legs.every((leg) => {
+          const event = legacyEvents.find(
+            (candidate) => candidate.id === leg.eventId,
+          )
+          return event?.sport === sport
+        }),
+      ),
+    [sport],
+  )
+
   function build(parlay: PopularParlay): void {
     const items = parlay.legs
       .map((leg) => resolveSlipItem(leg.eventId, leg.marketId, leg.selectionId))
@@ -3191,6 +3553,10 @@ function FdPopularParlays({
     }
   }
 
+  if (visibleParlays.length === 0) {
+    return null
+  }
+
   return (
     <section className="fd-popular-parlays" aria-label="Popular parlays">
       <header>
@@ -3198,7 +3564,7 @@ function FdPopularParlays({
         <small>One-tap, pre-built tickets</small>
       </header>
       <div className="fd-parlay-grid">
-        {POPULAR_PARLAYS.map((parlay) => {
+        {visibleParlays.map((parlay) => {
           const items = parlay.legs
             .map((leg) => resolveSlipItem(leg.eventId, leg.marketId, leg.selectionId))
             .filter((item): item is LegacySlipItem => item !== null)

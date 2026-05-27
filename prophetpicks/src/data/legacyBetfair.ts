@@ -23,6 +23,13 @@ export type LegacyTeam = {
   code: string
   primary: string
   secondary: string
+  /**
+   * Optional URL to a real team logo, e.g. `/team-logos/chiefs.png`.
+   * Drop a licensed/public-domain image into `public/team-logos/` and wire it
+   * up here. When absent, the UI renders the abstracted gradient + monogram
+   * crest. Logos are NOT shipped in the repo for trademark reasons.
+   */
+  logoUrl?: string
 }
 
 export type SportDefinition = {
@@ -45,10 +52,12 @@ export type LegacyEvent = {
   homeCode: string
   homePrimary: string
   homeSecondary: string
+  homeLogoUrl?: string
   away: string
   awayCode: string
   awayPrimary: string
   awaySecondary: string
+  awayLogoUrl?: string
   venue: string
 }
 
@@ -585,10 +594,12 @@ function event(
     homeCode: home.code,
     homePrimary: home.primary,
     homeSecondary: home.secondary,
+    homeLogoUrl: home.logoUrl,
     away: away.name,
     awayCode: away.code,
     awayPrimary: away.primary,
     awaySecondary: away.secondary,
+    awayLogoUrl: away.logoUrl,
     venue,
   }
 }

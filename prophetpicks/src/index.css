@@ -3794,3 +3794,346 @@ img {
   font-weight: 820;
   letter-spacing: 0.3px;
 }
+
+/* =========================================================================
+   NEXT-LEVEL POLISH
+   ========================================================================= */
+
+:root {
+  --fd-ring-soft: 0 0 0 1px rgba(15, 20, 25, 0.05), 0 2px 6px rgba(15, 20, 25, 0.06);
+  --fd-ring-medium: 0 0 0 1px rgba(15, 20, 25, 0.06), 0 8px 22px rgba(15, 20, 25, 0.1);
+  --fd-ring-strong: 0 0 0 1px rgba(15, 20, 25, 0.08), 0 24px 60px rgba(15, 20, 25, 0.22);
+}
+
+* {
+  font-feature-settings: 'ss01', 'cv01', 'tnum';
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 20, 25, 0.12);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 20, 25, 0.22);
+}
+
+/* Crest upgrade — radial gradient + inner highlight + optional <img> */
+.legacy-team-crest {
+  position: relative;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.32) 0%, transparent 38%),
+    linear-gradient(135deg, var(--team-primary) 0 48%, var(--team-secondary) 49% 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.22),
+    0 2px 5px rgba(15, 20, 25, 0.18);
+}
+
+.legacy-team-crest::after {
+  inset: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+}
+
+.legacy-team-crest.has-logo {
+  background: var(--fd-surface);
+  box-shadow:
+    0 0 0 1px rgba(15, 20, 25, 0.08),
+    0 1px 3px rgba(15, 20, 25, 0.1);
+}
+
+.legacy-team-crest.has-logo::after {
+  display: none;
+}
+
+.legacy-team-crest.has-logo img {
+  position: relative;
+  z-index: 1;
+  width: 86%;
+  height: 86%;
+  object-fit: contain;
+}
+
+.legacy-team-crest.has-logo > span {
+  display: none;
+}
+
+/* Hero — glass overlay + soft shimmer */
+.fd-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--fd-ring-strong);
+}
+
+.fd-hero::before {
+  position: absolute;
+  inset: -40% -10% auto auto;
+  width: 60%;
+  height: 200%;
+  content: '';
+  background: radial-gradient(closest-side, rgba(20, 147, 255, 0.4), transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+  opacity: 0.6;
+  animation: fd-hero-drift 16s ease-in-out infinite alternate;
+}
+
+@keyframes fd-hero-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-6%, 4%, 0) scale(1.05);
+  }
+}
+
+.fd-hero header,
+.fd-hero-body,
+.fd-hero-pick {
+  position: relative;
+  z-index: 1;
+}
+
+.fd-hero-pick {
+  backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fd-hero-pick button {
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.fd-hero-pick button:hover {
+  transform: translateY(-1px);
+}
+
+/* Cards lift on hover */
+.fd-promo-card,
+.fd-boosted-card,
+.fd-trending-card,
+.fd-parlay-card,
+.legacy-event-row,
+.fd-row,
+.fd-row-stats,
+.legacy-odd-tile,
+.legacy-odds-board-tile,
+.fd-odd-btn,
+.legacy-prediction-card,
+.legacy-account-grid article,
+.legacy-team-card,
+.fd-search-results li,
+.fd-my-slips-list li,
+.fd-bet-insights article,
+.fd-live-card {
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.fd-promo-card:hover,
+.fd-boosted-card:hover,
+.fd-trending-card:hover,
+.fd-parlay-card:hover,
+.legacy-event-row:hover,
+.fd-row:hover,
+.legacy-odd-tile:hover,
+.legacy-odds-board-tile:hover,
+.fd-odd-btn:hover,
+.legacy-prediction-card:hover,
+.legacy-account-grid article:hover,
+.legacy-team-card:hover,
+.fd-search-results li:hover,
+.fd-my-slips-list li:hover,
+.fd-bet-insights article:hover,
+.fd-live-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--fd-ring-medium);
+}
+
+/* Tabular numerals on price-style elements */
+.fd-odd-btn .fd-price,
+.legacy-odd-tile b,
+.legacy-odds-board-prices em b,
+.fd-trending-meta b,
+.fd-boosted-card b,
+.fd-hero-pick button b,
+.fd-parlay-card footer b,
+.fd-bet-insights strong,
+.fd-my-slips-meta b,
+.legacy-prediction-selection b,
+.legacy-table td,
+.legacy-slip-summary strong,
+.fd-slip-rail footer strong,
+.fd-slip-rail-leg b {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Slip dialog slide-in (desktop right dock) */
+@media (min-width: 980px) {
+  .legacy-modal-backdrop:has(.legacy-slip-dialog) .legacy-slip-dialog {
+    animation: fd-slide-in-right 200ms ease-out both;
+  }
+}
+
+@keyframes fd-slide-in-right {
+  from {
+    transform: translateX(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Notification panel slide-down */
+.fd-notifications-panel {
+  animation: fd-slide-in-down 180ms ease-out both;
+}
+
+@keyframes fd-slide-in-down {
+  from {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Stat pack drawer slide-in */
+.fd-statpack-dialog {
+  animation: fd-slide-in-right 200ms ease-out both;
+}
+
+/* Live dot — refined glow */
+.fd-live-dot {
+  box-shadow: 0 0 0 0 var(--fd-red);
+  animation: fd-pulse 1.4s ease-in-out infinite,
+    fd-live-halo 1.4s ease-in-out infinite;
+}
+
+@keyframes fd-live-halo {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(229, 57, 53, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(229, 57, 53, 0.18);
+  }
+}
+
+/* Headings — tighter leading, no orphan-letters at the start */
+.legacy-title-row h1,
+.legacy-market-header h1,
+.legacy-table-header h1,
+.fd-hero-body h2,
+#predictions-title,
+#odds-board-title,
+#settings-title,
+#my-slips-title,
+#parlay-title,
+#search-title {
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+/* Buttons — subtle press feedback everywhere */
+button:active {
+  transform: translateY(1px);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--fd-blue);
+  outline-offset: 2px;
+  border-radius: var(--fd-radius-sm);
+}
+
+/* Promo card — gradient bloom on hover */
+.fd-promo-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.fd-promo-card::after {
+  position: absolute;
+  inset: -50% -20% auto auto;
+  width: 70%;
+  height: 200%;
+  content: '';
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.18), transparent 70%);
+  filter: blur(32px);
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.fd-promo-card:hover::after {
+  opacity: 0.85;
+}
+
+/* SGP / BTTS / Boost pills — refined chip */
+.fd-row-sgp,
+.fd-trending-share,
+.fd-boosted-card small,
+.fd-row-time .fd-live,
+.fd-bet-live-chip,
+.fd-live-pill,
+.fd-sport-hub-count,
+.legacy-market-count {
+  font-feature-settings: 'tnum';
+  letter-spacing: 0.5px;
+}
+
+/* Event row hover — gentle gradient backdrop */
+.fd-row:hover {
+  background: linear-gradient(180deg, var(--fd-surface) 0%, var(--fd-surface-alt) 100%);
+}
+
+/* Bet rail group highlight */
+.fd-slip-rail-group.is-sgp {
+  background: linear-gradient(135deg, var(--fd-blue-soft) 0%, rgba(232, 243, 255, 0.6) 100%);
+}
+
+/* Sport rail active — subtle gradient pill */
+.legacy-sport-rail button.active {
+  background: linear-gradient(135deg, var(--fd-blue-soft) 0%, rgba(232, 243, 255, 0.4) 100%);
+  box-shadow: inset 3px 0 0 var(--fd-blue);
+}
+
+/* Smoother focus on inputs */
+input,
+select,
+textarea {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--fd-blue);
+  box-shadow: 0 0 0 3px rgba(20, 147, 255, 0.18);
+}
+
+/* Honor reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
