@@ -17,6 +17,7 @@ interface HealthResponse {
     sportradar: boolean
     sportsdb: 'public' | 'private'
     teamLogos: 'espn-cdn'
+    auth: 'google' | 'disabled'
   }
   ts: string
 }
@@ -50,6 +51,12 @@ export default async function handler(
       sportradar: Boolean(process.env.SPORTRADAR_API_KEY),
       sportsdb: process.env.SPORTSDB_API_KEY ? 'private' : 'public',
       teamLogos: 'espn-cdn',
+      auth:
+        process.env.GOOGLE_CLIENT_ID &&
+        process.env.GOOGLE_CLIENT_SECRET &&
+        process.env.AUTH_JWT_SECRET
+          ? 'google'
+          : 'disabled',
     },
     ts: new Date().toISOString(),
   }

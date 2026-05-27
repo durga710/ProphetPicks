@@ -58,12 +58,15 @@ import {
   loadRealStatPack,
   loadSavedSlips,
   loadSchedule,
+  loadSession,
   loadTeamLogo,
+  logoutSession,
   saveBet,
   saveSlip,
   type NewsArticle,
   type RealStatPack,
   type ScheduleGame,
+  type SessionSnapshot,
 } from '../data/providers/persistence'
 import {
   buildRealSlipItem,
@@ -255,6 +258,33 @@ export function LegacyBetfairApp() {
     DEFAULT_NOTIFICATIONS,
   )
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  const [session, setSession] = useState<SessionSnapshot | null>(null)
+
+  useEffect(() => {
+    if (!import.meta.env.PROD) {
+      return
+    }
+    let cancelled = false
+    loadSession().then((snapshot) => {
+      if (cancelled) {
+        return
+      }
+      setSession(snapshot)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function handleSignOut(): Promise<void> {
+    const ok = await logoutSession()
+    if (ok) {
+      setSession((current) =>
+        current ? { ...current, user: null } : current,
+      )
+      setStatus('Signed out. Your slip is still here locally.')
+    }
+  }
 
   function changeOddsFormat(next: OddsFormat): void {
     setOddsFormat(next)
@@ -569,8 +599,39 @@ export function LegacyBetfairApp() {
             />
           </form>
           <div className="legacy-account">
-            <span>Hello, Jhon Alexander</span>
-            <strong>Credits: $20000</strong>
+            {session?.user ? (
+              <>
+                {session.user.picture && (
+                  <img
+                    className="fd-user-avatar"
+                    src={session.user.picture}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                <span>{session.user.name || session.user.email}</span>
+                <strong>Credits: $20000</strong>
+                <button
+                  className="fd-signout"
+                  type="button"
+                  onClick={handleSignOut}
+                >
+                  Sign out
+                </button>
+              </>
+            ) : session?.authProvider === 'google' ? (
+              <>
+                <a className="fd-signin" href="/api/auth/google/start">
+                  Sign in with Google
+                </a>
+                <strong>Credits: $20000</strong>
+              </>
+            ) : (
+              <>
+                <span>Hello, Jhon Alexander</span>
+                <strong>Credits: $20000</strong>
+              </>
+            )}
             <button
               className="fd-bell"
               type="button"

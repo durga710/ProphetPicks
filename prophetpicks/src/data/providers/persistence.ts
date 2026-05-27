@@ -255,6 +255,38 @@ export async function loadRealStatPack(
   )
 }
 
+export interface SessionUser {
+  id: string
+  email: string
+  name: string
+  picture: string | null
+  provider: 'google'
+}
+
+export interface SessionSnapshot {
+  authProvider: 'google' | 'disabled'
+  user: SessionUser | null
+}
+
+export async function loadSession(): Promise<SessionSnapshot | null> {
+  return safeFetchJson<SessionSnapshot>('/api/auth/session')
+}
+
+export async function logoutSession(): Promise<boolean> {
+  if (typeof fetch !== 'function') {
+    return false
+  }
+  try {
+    const response = await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+    })
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
 export interface TeamLogoLookup {
   name: string
   sport?: string
