@@ -49,7 +49,12 @@ import {
   type OddsQuote,
 } from '../domain/oddsBoard'
 import { loadOddsQuotes } from '../data/providers/oddsApi'
-import { loadBets, saveBet, saveSlip } from '../data/providers/persistence'
+import {
+  loadBets,
+  loadLiveState,
+  saveBet,
+  saveSlip,
+} from '../data/providers/persistence'
 
 type Screen =
   | 'account'
@@ -189,6 +194,8 @@ export function LegacyBetfairApp() {
   const [slipMode, setSlipMode] = useState<SlipMode>('combined')
   const [stakeInput, setStakeInput] = useState('10.00')
   const [legalTopic, setLegalTopic] = useState<LegalTopic | null>(null)
+  const [statPackEvent, setStatPackEvent] = useState<LegacyEvent | null>(null)
+  const [savedSlips, setSavedSlips] = useState<SavedSlipSummary[]>([])
 
   const activeEvents = useMemo(() => getEventsForSport(activeSport), [activeSport])
   const activeSportDefinition = getSport(activeSport)
@@ -362,7 +369,27 @@ export function LegacyBetfairApp() {
     // Optional server-side persistence. Soft-fails offline; React state stays
     // the source of truth regardless of network outcome.
     void saveBet(newBet)
-    void saveSlip(slipItems, slipMode, stake)
+    const topSelection = primaryItem.selection.label
+    const summaryPrice = combinedPrice(slipItems)
+    saveSlip(slipItems, slipMode, stake).then((response) => {
+      if (!response) {
+        return
+      }
+
+      setSavedSlips((current) =>
+        [
+          {
+            slipId: response.slipId,
+            savedAt: response.savedAt,
+            legCount: response.legCount,
+            mode: slipMode,
+            topSelection,
+            combinedPrice: summaryPrice,
+          },
+          ...current,
+        ].slice(0, 8),
+      )
+    })
     setMockLedgerRows((rows) => [
       {
         id: `ledger-${createdId}`,
@@ -377,6 +404,32 @@ export function LegacyBetfairApp() {
     setStatus(
       `Mock bet saved locally. Estimated return ${formatCurrency(returnValue)}. No live wager was placed.`,
     )
+  }
+
+  function cashOutBet(betId: string): void {
+    setMockBets((bets) =>
+      bets.map((bet) => {
+        if (bet.id !== betId || !bet.status.includes('Pending')) {
+          return bet
+        }
+
+        const stakeNumber = Number.parseFloat(bet.stake.replace(/[^\d.]/g, ''))
+        if (!Number.isFinite(stakeNumber) || stakeNumber <= 0) {
+          return bet
+        }
+
+        const cashoutAmount = stakeNumber * 0.92
+        const profit = cashoutAmount - stakeNumber
+
+        return {
+          ...bet,
+          status: `Cashed Out ${formatCurrency(cashoutAmount)}`,
+          profitLoss: formatSignedCurrency(profit),
+        }
+      }),
+    )
+
+    setStatus('Cash-out locked in. The original ticket is closed.')
   }
 
   return (
@@ -533,6 +586,7 @@ export function LegacyBetfairApp() {
               }
               onOpenCatalog={openCatalog}
               onAddSlipItem={addSlipItem}
+              onOpenStatPack={setStatPackEvent}
             />
           )}
 
@@ -558,7 +612,12 @@ export function LegacyBetfairApp() {
 
           {screen === 'odds' && <OddsBoardScreen onAddSlipItem={addSlipItem} />}
 
-          {screen === 'bets' && <BetsScreen bets={[...mockBets, ...legacyBets]} />}
+          {screen === 'bets' && (
+            <BetsScreen
+              bets={[...mockBets, ...legacyBets]}
+              onCashOut={cashOutBet}
+            />
+          )}
 
           {screen === 'finance' && (
             <FinanceScreen
@@ -574,6 +633,7 @@ export function LegacyBetfairApp() {
           items={slipItems}
           mode={slipMode}
           stakeInput={stakeInput}
+          savedSlips={savedSlips}
           onOpen={() => setIsSlipOpen(true)}
         />
       </div>
@@ -626,6 +686,13 @@ export function LegacyBetfairApp() {
 
       {legalTopic && (
         <LegalDialog topic={legalTopic} onClose={() => setLegalTopic(null)} />
+      )}
+
+      {statPackEvent && (
+        <FdStatPackDrawer
+          event={statPackEvent}
+          onClose={() => setStatPackEvent(null)}
+        />
       )}
 
       {isSlipOpen && (
@@ -780,6 +847,7 @@ function EventsScreen({
   emptyMessage,
   onOpenCatalog,
   onAddSlipItem,
+  onOpenStatPack,
 }: {
   sport: ReturnType<typeof getSport>
   groupedEvents: Record<string, LegacyEvent[]>
@@ -789,6 +857,7 @@ function EventsScreen({
   emptyMessage: string
   onOpenCatalog: (event: LegacyEvent) => void
   onAddSlipItem: (item: LegacySlipItem) => void
+  onOpenStatPack: (event: LegacyEvent) => void
 }) {
   const [isLeagueOpen, setIsLeagueOpen] = useState(true)
   const [activeGroup, setActiveGroup] = useState<string | null>(null)
@@ -934,14 +1003,24 @@ function EventsScreen({
                             {event.away}
                           </span>
                         </div>
-                        <button
-                          className="fd-row-more"
-                          type="button"
-                          aria-label={`Open ${eventName(event)} market`}
-                          onClick={() => onOpenCatalog(event)}
-                        >
-                          All markets ›
-                        </button>
+                        <div className="fd-row-actions">
+                          <button
+                            className="fd-row-more"
+                            type="button"
+                            aria-label={`Open ${eventName(event)} market`}
+                            onClick={() => onOpenCatalog(event)}
+                          >
+                            All markets ›
+                          </button>
+                          <button
+                            className="fd-row-stats"
+                            type="button"
+                            aria-label={`Stat pack ${event.homeCode} vs ${event.awayCode}`}
+                            onClick={() => onOpenStatPack(event)}
+                          >
+                            Stats
+                          </button>
+                        </div>
                       </div>
                       <FdMarketColumn
                         label="Spread"
@@ -1368,7 +1447,13 @@ function TeamsScreen({ teams }: { teams: LegacyTeam[] }) {
   )
 }
 
-function BetsScreen({ bets }: { bets: LegacyBet[] }) {
+function BetsScreen({
+  bets,
+  onCashOut,
+}: {
+  bets: LegacyBet[]
+  onCashOut: (betId: string) => void
+}) {
   const [typeFilter, setTypeFilter] = useState<BetTypeFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const visibleBets = bets.filter((bet) => {
@@ -1430,26 +1515,56 @@ function BetsScreen({ bets }: { bets: LegacyBet[] }) {
               <th>Profit/Loss</th>
               <th>Status</th>
               <th>Date</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {visibleBets.map((bet) => (
-              <tr key={bet.id}>
-                <td>{bet.match}</td>
-                <td>{bet.market}</td>
-                <td>{bet.type}</td>
-                <td>{bet.stake}</td>
-                <td>{bet.price}</td>
-                <td className={bet.profitLoss.startsWith('+') ? 'positive' : 'negative'}>
-                  {bet.profitLoss}
-                </td>
-                <td>{bet.status}</td>
-                <td>{bet.date}</td>
-              </tr>
-            ))}
+            {visibleBets.map((bet) => {
+              const isPending = bet.status.includes('Pending')
+              const stakeNumber = Number.parseFloat(
+                bet.stake.replace(/[^\d.]/g, ''),
+              )
+              const cashoutValue =
+                isPending && Number.isFinite(stakeNumber)
+                  ? stakeNumber * 0.92
+                  : null
+
+              return (
+                <tr key={bet.id}>
+                  <td>{bet.match}</td>
+                  <td>{bet.market}</td>
+                  <td>{bet.type}</td>
+                  <td>{bet.stake}</td>
+                  <td>{bet.price}</td>
+                  <td
+                    className={
+                      bet.profitLoss.startsWith('+') ? 'positive' : 'negative'
+                    }
+                  >
+                    {bet.profitLoss}
+                  </td>
+                  <td>{bet.status}</td>
+                  <td>{bet.date}</td>
+                  <td>
+                    {cashoutValue !== null ? (
+                      <button
+                        className="fd-cashout"
+                        type="button"
+                        aria-label={`Cash out ${bet.match} at ${formatCurrency(cashoutValue)}`}
+                        onClick={() => onCashOut(bet.id)}
+                      >
+                        Cash Out {formatCurrency(cashoutValue)}
+                      </button>
+                    ) : (
+                      <span className="fd-cashout-empty">—</span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
             {visibleBets.length === 0 && (
               <tr>
-                <td colSpan={8}>No bets match the current filters.</td>
+                <td colSpan={9}>No bets match the current filters.</td>
               </tr>
             )}
           </tbody>
@@ -1909,6 +2024,15 @@ function BettingSlipDialog({
       </section>
     </div>
   )
+}
+
+type SavedSlipSummary = {
+  slipId: string
+  savedAt: string
+  legCount: number
+  mode: SlipMode
+  topSelection: string
+  combinedPrice: number
 }
 
 type OddsBoardSportFilter = 'all' | SportKey
@@ -2753,6 +2877,187 @@ function FdSportHub({ sport, eventCount }: { sport: SportKey; eventCount: number
   )
 }
 
+// ----- Stat-pack drawer -----
+type StatPack = {
+  homeForm: string
+  awayForm: string
+  headToHead: string[]
+  injuries: string[]
+  angle: string
+}
+
+const STAT_PACKS: Record<string, StatPack> = {
+  'chiefs-bills': {
+    homeForm: 'W W W L W (last 5)',
+    awayForm: 'W L W W L (last 5)',
+    headToHead: [
+      'KC 27 - BUF 24 — AFC Champ Jan 2024',
+      'BUF 20 - KC 17 — Week 14 Dec 2023',
+      'KC 27 - BUF 24 — Divisional Jan 2022',
+    ],
+    injuries: [
+      'BUF: S1 Hyde (questionable)',
+      'BUF: S Rapp (out)',
+      'KC: TE Kelce (full participant)',
+    ],
+    angle:
+      'Reid is 14-2 SU at home off a bye. Bills allow 7.4 YPA on the road. Take Mahomes to throw early and often.',
+  },
+  'arsenal-barcelona': {
+    homeForm: 'W W D W W',
+    awayForm: 'W W W D L',
+    headToHead: [
+      'Arsenal 2 - 1 Barca — UCL Group Stage',
+      'Barca 1 - 1 Arsenal — UCL Group Stage',
+      'Arsenal 3 - 1 Barca — pre-season',
+    ],
+    injuries: [
+      'BAR: CB Araujo (suspended)',
+      'BAR: CB Christensen (suspended)',
+      'ARS: ST Jesus (full training)',
+    ],
+    angle:
+      'Patchwork Barca backline vs the league pressing leaders is a tough spot. Look for an early Arsenal goal and set-piece chaos.',
+  },
+  'lakers-celtics': {
+    homeForm: 'W W L W W',
+    awayForm: 'W W W W L',
+    headToHead: [
+      'LAL 117 - BOS 110 — Feb',
+      'BOS 122 - LAL 118 — Dec',
+      'LAL 105 - BOS 102 — Oct',
+    ],
+    injuries: [
+      'BOS: PG Holiday (probable)',
+      'LAL: SF James (questionable, illness)',
+      'LAL: PF Davis (full)',
+    ],
+    angle:
+      'Crypto.com is loud after halftime, Lakers shoot 49% from 3 at home this year. Boston on the second night.',
+  },
+  'leafs-bruins': {
+    homeForm: 'W W W L W',
+    awayForm: 'L W L W W',
+    headToHead: [
+      'TOR 4 - BOS 2',
+      'BOS 5 - TOR 3',
+      'TOR 3 - BOS 2 (OT)',
+    ],
+    injuries: [
+      'BOS: G1 Swayman (game-time decision)',
+      'TOR: F Matthews (5-game point streak)',
+    ],
+    angle:
+      'Toronto wins first-period shot share by 12% in this matchup. Boston on the third game in four nights.',
+  },
+  'yankees-dodgers': {
+    homeForm: 'W L W W L',
+    awayForm: 'L L W L W',
+    headToHead: [
+      'NYY 4 - LAD 3',
+      'LAD 6 - NYY 2',
+      'NYY 5 - LAD 4 (10)',
+    ],
+    injuries: [
+      'LAD: 2B Lux (day-to-day)',
+      'NYY: SS Volpe (full)',
+    ],
+    angle:
+      'Cole vs Buehler with wind blowing in. Lean under and Yankees moneyline.',
+  },
+  'duke-kansas': {
+    homeForm: 'W W W L W',
+    awayForm: 'W W L W W',
+    headToHead: [
+      'DUKE 79 - KU 72 — 2022 Final Four',
+      'KU 84 - DUKE 80 — 2018 regular season',
+    ],
+    injuries: [
+      'DUKE: PG Roach (out, ankle)',
+      'KU: F Dickinson (full)',
+    ],
+    angle:
+      'Books opened Duke -3, line crawled to KU -1.5 once the Roach news broke. Sharps respect Kansas inside MSG.',
+  },
+}
+
+function FdStatPackDrawer({
+  event,
+  onClose,
+}: {
+  event: LegacyEvent
+  onClose: () => void
+}) {
+  const pack = STAT_PACKS[event.id] ?? null
+
+  return (
+    <div className="legacy-modal-backdrop fd-statpack-backdrop">
+      <section
+        className="legacy-dialog fd-statpack-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`statpack-${event.id}`}
+      >
+        <button
+          className="legacy-close"
+          type="button"
+          aria-label="Close stat pack"
+          onClick={onClose}
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
+        <p>Pre-game stat pack</p>
+        <h2 id={`statpack-${event.id}`}>
+          {event.home} vs {event.away}
+        </h2>
+        <span>
+          {event.league} · {event.dateLabel} · {event.time}
+        </span>
+        {pack === null && (
+          <p className="fd-statpack-empty">
+            We don't have a curated stat pack on this matchup yet. Open the
+            market for full pricing.
+          </p>
+        )}
+        {pack !== null && (
+          <>
+            <div className="fd-statpack-grid">
+              <article>
+                <span>{event.homeCode} form</span>
+                <strong>{pack.homeForm}</strong>
+              </article>
+              <article>
+                <span>{event.awayCode} form</span>
+                <strong>{pack.awayForm}</strong>
+              </article>
+            </div>
+            <section className="fd-statpack-section">
+              <h3>Head-to-head</h3>
+              <ul>
+                {pack.headToHead.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </section>
+            <section className="fd-statpack-section">
+              <h3>Injuries & status</h3>
+              <ul>
+                {pack.injuries.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </section>
+            <section className="fd-statpack-section">
+              <h3>Editor's angle</h3>
+              <p>{pack.angle}</p>
+            </section>
+          </>
+        )}
+      </section>
+    </div>
+  )
+}
+
 // ----- Editor's inline notes -----
 const EDITOR_NOTES: Record<string, string> = {
   'chiefs-bills': 'Sharp action moved the spread from -2.5 to -3 this morning. 71% of public bets are on the Bills, 78% of money on the Chiefs.',
@@ -2796,7 +3101,9 @@ function FdLiveNowRail({
   onAddSlipItem: (item: LegacySlipItem) => void
 }) {
   const [games, setGames] = useState<LiveGame[]>(LIVE_GAMES_SEED)
+  const [feedSource, setFeedSource] = useState<string>('Local demo state')
 
+  // Local ticker (8s) keeps the rail visibly alive between server polls.
   useEffect(() => {
     const id = setInterval(() => {
       setGames((current) =>
@@ -2824,6 +3131,35 @@ function FdLiveNowRail({
     return () => clearInterval(id)
   }, [])
 
+  // Server reconciliation (30s) overrides local state with /api/live whenever
+  // the server returns. Soft-fails offline; local ticker keeps the rail alive.
+  useEffect(() => {
+    let cancelled = false
+
+    function poll(): void {
+      loadLiveState().then((snapshot) => {
+        if (cancelled || !snapshot) {
+          return
+        }
+
+        setGames(snapshot.games)
+        setFeedSource(
+          snapshot.source === 'demo'
+            ? 'Server demo state'
+            : `Live feed: ${snapshot.source}`,
+        )
+      })
+    }
+
+    poll()
+    const id = setInterval(poll, 30_000)
+
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
+
   function pickLiveMoneyline(eventId: string): LegacySlipItem | null {
     const event = legacyEvents.find((candidate) => candidate.id === eventId)
     if (!event) {
@@ -2847,7 +3183,9 @@ function FdLiveNowRail({
           <span className="fd-live-dot" aria-hidden="true" />
           Live Now
         </span>
-        <small>{games.length} in-play</small>
+        <small>
+          {games.length} in-play · {feedSource}
+        </small>
       </header>
       <div className="fd-live-track">
         {games.map((game) => (
@@ -2918,11 +3256,13 @@ function FdSlipPreviewRail({
   items,
   mode,
   stakeInput,
+  savedSlips,
   onOpen,
 }: {
   items: LegacySlipItem[]
   mode: SlipMode
   stakeInput: string
+  savedSlips: SavedSlipSummary[]
   onOpen: () => void
 }) {
   const width = useWindowWidth()
@@ -2945,6 +3285,24 @@ function FdSlipPreviewRail({
       <div className="fd-slip-rail-body">
         {items.length === 0 && (
           <p className="fd-slip-rail-empty">Tap any odds to start a slip.</p>
+        )}
+        {savedSlips.length > 0 && (
+          <section className="fd-saved-slips" aria-label="Saved slips">
+            <h4>My slips</h4>
+            <ul>
+              {savedSlips.map((slip) => (
+                <li key={slip.slipId}>
+                  <div>
+                    <strong>{slip.topSelection}</strong>
+                    <span>
+                      {slip.legCount}-leg · {slip.mode}
+                    </span>
+                  </div>
+                  <b>{formatDecimal(slip.combinedPrice)}</b>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
         {grouped.map((group) => (
           <article

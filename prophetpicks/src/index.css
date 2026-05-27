@@ -2301,6 +2301,219 @@ img {
   background: var(--fd-blue-hover);
 }
 
+/* ===== CASH-OUT BUTTON ===== */
+.fd-cashout {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  color: var(--fd-text-inverse);
+  background: var(--fd-green);
+  border: 0;
+  border-radius: var(--fd-radius-sm);
+  font-size: 11px;
+  font-weight: 820;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.fd-cashout:hover {
+  background: #009639;
+}
+
+.fd-cashout-empty {
+  color: var(--fd-text-muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+/* ===== ROW ACTIONS (more + stats) ===== */
+.fd-row-actions {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.fd-row-stats {
+  padding: 0;
+  color: var(--fd-text-muted);
+  background: transparent;
+  border: 0;
+  font-size: 11px;
+  font-weight: 820;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.fd-row-stats:hover {
+  color: var(--fd-blue-hover);
+}
+
+/* ===== STAT-PACK DRAWER ===== */
+.fd-statpack-backdrop {
+  background: rgba(15, 20, 25, 0.45);
+}
+
+@media (min-width: 720px) {
+  .fd-statpack-backdrop {
+    place-items: stretch end;
+    padding: 0;
+  }
+
+  .fd-statpack-dialog {
+    width: min(440px, 100%);
+    max-height: 100vh;
+    border-radius: 0;
+    border-left: 1px solid var(--fd-surface-line);
+    border-top: 0;
+    border-right: 0;
+    border-bottom: 0;
+  }
+}
+
+.fd-statpack-dialog > span {
+  display: block;
+  margin-top: 4px;
+  color: var(--fd-text-muted);
+  font-size: 12px;
+}
+
+.fd-statpack-empty {
+  margin-top: 14px;
+  color: var(--fd-text-muted);
+  font-size: 13px;
+}
+
+.fd-statpack-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.fd-statpack-grid article {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--fd-surface-alt);
+  border: 1px solid var(--fd-surface-line);
+  border-radius: var(--fd-radius-sm);
+}
+
+.fd-statpack-grid span {
+  color: var(--fd-text-muted);
+  font-size: 11px;
+  font-weight: 820;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.fd-statpack-grid strong {
+  color: var(--fd-text);
+  font-size: 13px;
+  font-weight: 880;
+  letter-spacing: 0.5px;
+}
+
+.fd-statpack-section {
+  margin-top: 16px;
+}
+
+.fd-statpack-section h3 {
+  margin: 0 0 6px;
+  color: var(--fd-blue-hover);
+  font-size: 11px;
+  font-weight: 880;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.fd-statpack-section ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--fd-text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.fd-statpack-section p {
+  margin: 0;
+  color: var(--fd-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ===== SAVED SLIPS LIST ===== */
+.fd-saved-slips {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 10px;
+  background: var(--fd-surface-alt);
+  border: 1px solid var(--fd-surface-line);
+  border-radius: var(--fd-radius-sm);
+}
+
+.fd-saved-slips h4 {
+  margin: 0;
+  color: var(--fd-text-muted);
+  font-size: 10px;
+  font-weight: 880;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.fd-saved-slips ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fd-saved-slips li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-surface-line);
+  border-radius: var(--fd-radius-sm);
+}
+
+.fd-saved-slips li div {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.fd-saved-slips li strong {
+  color: var(--fd-text);
+  font-size: 12px;
+  font-weight: 820;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fd-saved-slips li span {
+  color: var(--fd-text-muted);
+  font-size: 10px;
+  font-weight: 720;
+}
+
+.fd-saved-slips li b {
+  color: var(--fd-blue-hover);
+  font-size: 13px;
+  font-weight: 880;
+}
+
 /* ===== EDITOR'S INLINE NOTE ===== */
 .fd-editor-note {
   display: grid;

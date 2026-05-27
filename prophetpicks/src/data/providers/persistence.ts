@@ -82,6 +82,27 @@ export async function saveSlip(
   })
 }
 
+interface LiveGameSnapshot {
+  id: string
+  eventId: string
+  league: string
+  status: string
+  homeCode: string
+  awayCode: string
+  homeScore: number
+  awayScore: number
+}
+
+interface LiveApiResponse {
+  source: 'demo' | 'sportradar' | 'odds-api'
+  games: LiveGameSnapshot[]
+  generatedAt: string
+}
+
+export async function loadLiveState(): Promise<LiveApiResponse | null> {
+  return safeFetchJson<LiveApiResponse>('/api/live')
+}
+
 async function safeFetchJson<T>(
   url: string,
   init: RequestInit = {},
