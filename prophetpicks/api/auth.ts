@@ -1,11 +1,11 @@
 /**
- * Catch-all auth dispatcher.
+ * Single auth dispatcher.
  *
- * URL contract (unchanged from when these lived as separate files):
- *   GET  /api/auth/google/start     → Google OAuth consent redirect
- *   GET  /api/auth/google/callback  → token exchange + JWT cookie
- *   GET  /api/auth/session          → current user
- *   GET/POST /api/auth/logout       → clear session cookie
+ * Routed via vercel.json rewrites so the friendly URLs survive:
+ *   GET      /api/auth/google/start     -> ?action=google-start
+ *   GET      /api/auth/google/callback  -> ?action=google-callback
+ *   GET      /api/auth/session          -> ?action=session
+ *   GET/POST /api/auth/logout           -> ?action=logout
  *
  * Consolidated into a single Vercel function to fit the Hobby plan's
  * 12-function deployment ceiling. No external dependencies; HS256 JWT
@@ -64,13 +64,13 @@ export default async function handler(
   request: VercelRequest,
   response: VercelResponse,
 ): Promise<void> {
-  const segments = readPathSegments(request.query?.path)
-  const route = segments.join('/')
+  const raw = request.query?.action
+  const action = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] ?? '' : ''
 
-  switch (route) {
-    case 'google/start':
+  switch (action) {
+    case 'google-start':
       return handleGoogleStart(request, response)
-    case 'google/callback':
+    case 'google-callback':
       return handleGoogleCallback(request, response)
     case 'session':
       return handleSession(request, response)
@@ -78,20 +78,11 @@ export default async function handler(
       return handleLogout(request, response)
     default:
       response.status(404).setHeader('Content-Type', 'application/json').json({
-        error: 'Unknown auth route',
-        route,
+        error: 'Unknown auth action',
+        hint: 'Use /api/auth/google/start, /api/auth/google/callback, /api/auth/session, or /api/auth/logout.',
+        receivedAction: action,
       })
   }
-}
-
-function readPathSegments(value: string | string[] | undefined): string[] {
-  if (Array.isArray(value)) {
-    return value.filter((segment) => segment.length > 0)
-  }
-  if (typeof value === 'string' && value.length > 0) {
-    return value.split('/').filter((segment) => segment.length > 0)
-  }
-  return []
 }
 
 // ----- Route: GET /api/auth/google/start ------------------------------------

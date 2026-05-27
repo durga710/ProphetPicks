@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/auth/google/start",
+      "destination": "/api/auth?action=google-start"
+    },
+    {
+      "source": "/api/auth/google/callback",
+      "destination": "/api/auth?action=google-callback"
+    },
+    {
+      "source": "/api/auth/session",
+      "destination": "/api/auth?action=session"
+    },
+    {
+      "source": "/api/auth/logout",
+      "destination": "/api/auth?action=logout"
+    }
+  ]
+}
