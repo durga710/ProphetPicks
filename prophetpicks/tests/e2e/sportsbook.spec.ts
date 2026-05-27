@@ -25,7 +25,7 @@ test.describe('ProphetPicks sportsbook', () => {
       page.getByRole('heading', { name: /UEFA Champions League/i }),
     ).toBeVisible()
 
-    const sportRail = page.getByRole('navigation', { name: /Sports/i })
+    const sportRail = page.getByRole('navigation', { name: /League categories/i })
     for (const sport of sports) {
       await expect(
         sportRail.getByRole('button', { name: sport, exact: true }),

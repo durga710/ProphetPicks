@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   CalendarDays,
   ChevronDown,
-  ChevronRight,
   CircleDollarSign,
   ClipboardList,
   LineChart,
@@ -444,79 +443,79 @@ export function LegacyBetfairApp() {
         </nav>
       </header>
 
-      <main className="legacy-main">
-        {screen !== 'finance' &&
-          screen !== 'bets' &&
-          screen !== 'account' &&
-          screen !== 'predictions' &&
-          screen !== 'odds' && (
+      <div className="legacy-shell-grid">
+        <aside className="legacy-side-rail" aria-label="Side rail">
+          <h3>Sports</h3>
           <SportRail activeSport={activeSport} onChangeSport={changeSport} />
-        )}
+        </aside>
 
-        {screen === 'account' && (
-          <AccountScreen
-            bets={[...mockBets, ...legacyBets]}
-            ledgerRows={[...mockLedgerRows, ...legacyLedger]}
-            onOpenLedger={() => {
-              setFinanceTab('ledger')
-              navigate('finance')
-            }}
-          />
-        )}
+        <main className="legacy-main">
+          {(screen === 'events' || screen === 'today' || screen === 'odds') && (
+            <FdPromoStrip />
+          )}
 
-        {(screen === 'events' || screen === 'today') && (
-          <EventsScreen
-            sport={activeSportDefinition}
-            groupedEvents={groupedEvents}
-            groups={activeSportDefinition.groups}
-            title={screen === 'today' ? "Today's Matches" : activeSportDefinition.title}
-            eyebrow={screen === 'today' ? 'Daily board' : 'Dense Sportsbook Board'}
-            emptyMessage={
-              screen === 'today'
-                ? 'No matches match the current filters. Try another sport or clear search.'
-                : 'No matches found for the current filters.'
-            }
-            onOpenCatalog={openCatalog}
-          />
-        )}
+          {screen === 'account' && (
+            <AccountScreen
+              bets={[...mockBets, ...legacyBets]}
+              ledgerRows={[...mockLedgerRows, ...legacyLedger]}
+              onOpenLedger={() => {
+                setFinanceTab('ledger')
+                navigate('finance')
+              }}
+            />
+          )}
 
-        {screen === 'market' && (
-          <MarketScreen
-            event={selectedEvent}
-            market={selectedMarket}
-            onOpenMarket={openMarket}
-            onRefreshMarket={refreshMarket}
-            onAddSelection={addSelection}
-          />
-        )}
+          {(screen === 'events' || screen === 'today') && (
+            <EventsScreen
+              sport={activeSportDefinition}
+              groupedEvents={groupedEvents}
+              groups={activeSportDefinition.groups}
+              title={screen === 'today' ? "Today's Matches" : activeSportDefinition.title}
+              eyebrow={screen === 'today' ? 'Daily board' : 'Dense Sportsbook Board'}
+              emptyMessage={
+                screen === 'today'
+                  ? 'No matches match the current filters. Try another sport or clear search.'
+                  : 'No matches found for the current filters.'
+              }
+              onOpenCatalog={openCatalog}
+              onAddSlipItem={addSlipItem}
+            />
+          )}
 
-        {screen === 'teams' && (
-          <TeamsScreen teams={legacyTeams} />
-        )}
+          {screen === 'market' && (
+            <MarketScreen
+              event={selectedEvent}
+              market={selectedMarket}
+              onOpenMarket={openMarket}
+              onRefreshMarket={refreshMarket}
+              onAddSelection={addSelection}
+            />
+          )}
 
-        {screen === 'predictions' && (
-          <PredictionScreen
-            predictions={predictions}
-            onAddPrediction={addPrediction}
-            onBuildBestParlay={buildBestParlay}
-          />
-        )}
+          {screen === 'teams' && <TeamsScreen teams={legacyTeams} />}
 
-        {screen === 'odds' && (
-          <OddsBoardScreen onAddSlipItem={addSlipItem} />
-        )}
+          {screen === 'predictions' && (
+            <PredictionScreen
+              predictions={predictions}
+              onAddPrediction={addPrediction}
+              onBuildBestParlay={buildBestParlay}
+            />
+          )}
 
-        {screen === 'bets' && <BetsScreen bets={[...mockBets, ...legacyBets]} />}
+          {screen === 'odds' && <OddsBoardScreen onAddSlipItem={addSlipItem} />}
 
-        {screen === 'finance' && (
-          <FinanceScreen
-            activeTab={financeTab}
-            ledgerRows={[...mockLedgerRows, ...legacyLedger]}
-            onAccountClick={() => navigate('account')}
-            onTabChange={setFinanceTab}
-          />
-        )}
-      </main>
+          {screen === 'bets' && <BetsScreen bets={[...mockBets, ...legacyBets]} />}
+
+          {screen === 'finance' && (
+            <FinanceScreen
+              activeTab={financeTab}
+              ledgerRows={[...mockLedgerRows, ...legacyLedger]}
+              onAccountClick={() => navigate('account')}
+              onTabChange={setFinanceTab}
+            />
+          )}
+        </main>
+      </div>
 
       <footer className="legacy-footer">
         <div>
@@ -608,19 +607,126 @@ function SportRail({
   onChangeSport: (sport: SportKey) => void
 }) {
   return (
-    <nav className="legacy-sport-rail" aria-label="Sports">
+    <nav className="legacy-sport-rail" aria-label="League categories">
       {sports.map((sport) => (
         <button
           className={sport.key === activeSport ? 'active' : ''}
           key={sport.key}
           type="button"
-          aria-label={sport.label}
           onClick={() => onChangeSport(sport.key)}
         >
           {sport.label}
         </button>
       ))}
     </nav>
+  )
+}
+
+function FdPromoStrip() {
+  return (
+    <div className="fd-promo-strip" aria-label="Promotions">
+      <article className="fd-promo-card blue">
+        <span>Boosted Odds</span>
+        <strong>Chiefs ML +165 → +200</strong>
+        <b>Demo offer</b>
+      </article>
+      <article className="fd-promo-card">
+        <span>Same Game Parlay</span>
+        <strong>Build a 3-leg SGP</strong>
+        <b>Any matchup</b>
+      </article>
+      <article className="fd-promo-card green">
+        <span>Prophet Picks</span>
+        <strong>Top edges today</strong>
+        <b>Avg +5.2% edge</b>
+      </article>
+    </div>
+  )
+}
+
+type PrimaryMarkets = {
+  moneyline: LegacyMarket | null
+  spread: LegacyMarket | null
+  total: LegacyMarket | null
+}
+
+function pickPrimaryMarkets(event: LegacyEvent): PrimaryMarkets {
+  const markets = getMarketsForEvent(event)
+  const findById = (...ids: string[]): LegacyMarket | null =>
+    markets.find((market) => ids.includes(market.id)) ?? null
+
+  return {
+    moneyline: findById('moneyline', 'match-odds', 'winner'),
+    spread: findById('spread', 'handicap', 'run-line', 'puck-line', 'to-qualify'),
+    total: findById('total', 'goals-25'),
+  }
+}
+
+function shortenSelectionLabel(selection: LegacyMarket['selections'][number]): string {
+  const label = selection.label
+  if (label.length <= 18) {
+    return label
+  }
+
+  return `${label.slice(0, 17)}…`
+}
+
+function FdOddsButton({
+  event,
+  market,
+  selection,
+  onAdd,
+}: {
+  event: LegacyEvent
+  market: LegacyMarket
+  selection: LegacyMarket['selections'][number]
+  onAdd: (item: LegacySlipItem) => void
+}) {
+  const american = formatAmericanOdds(decimalToAmericanOdds(selection.odds))
+
+  return (
+    <button
+      className="fd-odd-btn"
+      type="button"
+      aria-label={`Board ${selection.label} ${market.label} at ${formatDecimal(selection.odds)}`}
+      onClick={() => onAdd({ event, market, selection })}
+    >
+      <span className="fd-line">{shortenSelectionLabel(selection)}</span>
+      <span className="fd-price">{american}</span>
+    </button>
+  )
+}
+
+function FdMarketColumn({
+  label,
+  event,
+  market,
+  onAdd,
+}: {
+  label: string
+  event: LegacyEvent
+  market: LegacyMarket | null
+  onAdd: (item: LegacySlipItem) => void
+}) {
+  return (
+    <div className="fd-row-market">
+      <div className="fd-row-market-label">{label}</div>
+      {market === null
+        ? Array.from({ length: 2 }).map((_, index) => (
+            <div className="fd-odd-empty" key={`empty-${index}`}>—</div>
+          ))
+        : market.selections
+            .slice(0, 3)
+            .map((selection) => (
+              <FdOddsButton
+                key={selection.id}
+                event={event}
+                market={market}
+                selection={selection}
+                onAdd={onAdd}
+              />
+            ))}
+    </div>
   )
 }
 
@@ -632,6 +738,7 @@ function EventsScreen({
   eyebrow,
   emptyMessage,
   onOpenCatalog,
+  onAddSlipItem,
 }: {
   sport: ReturnType<typeof getSport>
   groupedEvents: Record<string, LegacyEvent[]>
@@ -640,6 +747,7 @@ function EventsScreen({
   eyebrow: string
   emptyMessage: string
   onOpenCatalog: (event: LegacyEvent) => void
+  onAddSlipItem: (item: LegacySlipItem) => void
 }) {
   const [isLeagueOpen, setIsLeagueOpen] = useState(true)
   const [activeGroup, setActiveGroup] = useState<string | null>(null)
@@ -753,36 +861,66 @@ function EventsScreen({
                 {date}
               </div>
               <div className="legacy-event-list dense">
-                {events.map((event) => (
-                  <button
-                    className="legacy-event-row dense"
-                    key={event.id}
-                    type="button"
-                    aria-label={`Open ${eventName(event)} market`}
-                    onClick={() => onOpenCatalog(event)}
-                  >
-                    <span className="legacy-time">{event.time}</span>
-                    <span className="legacy-matchup-logos">
-                      <TeamCrest
-                        label={event.home}
-                        code={event.homeCode}
-                        primary={event.homePrimary}
-                        secondary={event.homeSecondary}
+                {events.map((event) => {
+                  const primary = pickPrimaryMarkets(event)
+
+                  return (
+                    <div className="fd-row" key={event.id}>
+                      <div className="fd-row-matchup">
+                        <span className="fd-row-time">
+                          {event.time}
+                          <span className="fd-row-sgp">SGP</span>
+                        </span>
+                        <div className="fd-row-teams">
+                          <span className="fd-row-team">
+                            <TeamCrest
+                              label={event.home}
+                              code={event.homeCode}
+                              primary={event.homePrimary}
+                              secondary={event.homeSecondary}
+                            />
+                            {event.home}
+                          </span>
+                          <span className="fd-row-team">
+                            <TeamCrest
+                              label={event.away}
+                              code={event.awayCode}
+                              primary={event.awayPrimary}
+                              secondary={event.awaySecondary}
+                            />
+                            {event.away}
+                          </span>
+                        </div>
+                        <button
+                          className="fd-row-more"
+                          type="button"
+                          aria-label={`Open ${eventName(event)} market`}
+                          onClick={() => onOpenCatalog(event)}
+                        >
+                          All markets ›
+                        </button>
+                      </div>
+                      <FdMarketColumn
+                        label="Spread"
+                        event={event}
+                        market={primary.spread}
+                        onAdd={onAddSlipItem}
                       />
-                      <span className="legacy-versus">VS</span>
-                      <TeamCrest
-                        label={event.away}
-                        code={event.awayCode}
-                        primary={event.awayPrimary}
-                        secondary={event.awaySecondary}
+                      <FdMarketColumn
+                        label="Total"
+                        event={event}
+                        market={primary.total}
+                        onAdd={onAddSlipItem}
                       />
-                    </span>
-                    <span className="legacy-market-count">
-                      {getMarketsForEvent(event).length} markets
-                    </span>
-                    <ChevronRight size={16} aria-hidden="true" />
-                  </button>
-                ))}
+                      <FdMarketColumn
+                        label="Moneyline"
+                        event={event}
+                        market={primary.moneyline}
+                        onAdd={onAddSlipItem}
+                      />
+                    </div>
+                  )
+                })}
               </div>
             </section>
           ))}
