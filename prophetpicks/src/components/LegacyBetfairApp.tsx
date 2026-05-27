@@ -17,6 +17,7 @@ import {
 import {
   legacyBets,
   legacyDeposits,
+  legacyEvents,
   legacyLedger,
   legacyTeams,
   legacyWithdrawals,
@@ -451,7 +452,11 @@ export function LegacyBetfairApp() {
 
         <main className="legacy-main">
           {(screen === 'events' || screen === 'today' || screen === 'odds') && (
-            <FdPromoStrip />
+            <>
+              <FdPromoStrip />
+              <FdBoostedOddsRail onAddSlipItem={addSlipItem} />
+              <FdLiveNowRail onAddSlipItem={addSlipItem} />
+            </>
           )}
 
           {screen === 'account' && (
@@ -515,7 +520,16 @@ export function LegacyBetfairApp() {
             />
           )}
         </main>
+
+        <FdSlipPreviewRail
+          items={slipItems}
+          mode={slipMode}
+          stakeInput={stakeInput}
+          onOpen={() => setIsSlipOpen(true)}
+        />
       </div>
+
+      <FdBottomNav screen={screen} onNavigate={navigate} />
 
       <footer className="legacy-footer">
         <div>
@@ -619,28 +633,6 @@ function SportRail({
         </button>
       ))}
     </nav>
-  )
-}
-
-function FdPromoStrip() {
-  return (
-    <div className="fd-promo-strip" aria-label="Promotions">
-      <article className="fd-promo-card blue">
-        <span>Boosted Odds</span>
-        <strong>Chiefs ML +165 → +200</strong>
-        <b>Demo offer</b>
-      </article>
-      <article className="fd-promo-card">
-        <span>Same Game Parlay</span>
-        <strong>Build a 3-leg SGP</strong>
-        <b>Any matchup</b>
-      </article>
-      <article className="fd-promo-card green">
-        <span>Prophet Picks</span>
-        <strong>Top edges today</strong>
-        <b>Avg +5.2% edge</b>
-      </article>
-    </div>
   )
 }
 
@@ -1766,24 +1758,54 @@ function BettingSlipDialog({
         </div>
         <div className="legacy-slip-items">
           {items.length === 0 && <div className="legacy-empty">No selections yet.</div>}
-          {items.map((item, index) => (
-            <div className="legacy-slip-item" key={`${item.event.id}-${item.market.id}-${index}`}>
-              <div>
-                <strong>{item.selection.label}</strong>
-                <span>
-                  {item.market.label} - {item.event.time}
-                </span>
-              </div>
-              <b>{formatDecimal(item.selection.odds)}</b>
-              <button
-                type="button"
-                aria-label={`Remove ${item.selection.label}`}
-                onClick={() => onRemove(index)}
+          {groupItemsByEvent(items).map((group) => {
+            const isSgp = group.items.length > 1
+            const sgpPrice = group.items.reduce(
+              (product, leg) => product * leg.selection.odds,
+              1,
+            )
+
+            return (
+              <div
+                className={`legacy-slip-group ${isSgp ? 'is-sgp' : ''}`}
+                key={group.eventId}
               >
-                <X size={14} aria-hidden="true" />
-              </button>
-            </div>
-          ))}
+                {isSgp && (
+                  <div className="legacy-slip-sgp-header">
+                    <span>
+                      <em>SGP</em>
+                      {group.eventLabel}
+                    </span>
+                    <b>{formatDecimal(sgpPrice)}</b>
+                  </div>
+                )}
+                {group.items.map((item) => {
+                  const slipIndex = items.indexOf(item)
+                  return (
+                    <div
+                      className="legacy-slip-item"
+                      key={`${item.event.id}-${item.market.id}-${item.selection.id}`}
+                    >
+                      <div>
+                        <strong>{item.selection.label}</strong>
+                        <span>
+                          {item.market.label} - {item.event.time}
+                        </span>
+                      </div>
+                      <b>{formatDecimal(item.selection.odds)}</b>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${item.selection.label}`}
+                        onClick={() => onRemove(slipIndex)}
+                      >
+                        <X size={14} aria-hidden="true" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
         </div>
         <div className="legacy-slip-summary">
           <div>
@@ -2058,3 +2080,447 @@ function OddsBoardTile({
     </button>
   )
 }
+
+// ----- Viewport width hook (used to gate desktop/mobile-only chrome) -----
+function useWindowWidth(): number {
+  const [width, setWidth] = useState(0)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    function syncWidth(): void {
+      setWidth(window.innerWidth)
+    }
+
+    syncWidth()
+    window.addEventListener('resize', syncWidth)
+    return () => window.removeEventListener('resize', syncWidth)
+  }, [])
+
+  return width
+}
+
+// ----- Promo rotator -----
+type PromoSlot = {
+  id: string
+  tone: 'blue' | 'green' | 'navy'
+  eyebrow: string
+  title: string
+  caption: string
+}
+
+const PROMO_SLOTS: PromoSlot[] = [
+  { id: 'boost-1', tone: 'blue', eyebrow: 'Boosted Odds', title: 'Chiefs ML +165 → +200', caption: 'Demo boost' },
+  { id: 'boost-2', tone: 'blue', eyebrow: 'Boosted Odds', title: 'Lakers ML -185 → -150', caption: 'Demo boost' },
+  { id: 'sgp-1', tone: 'navy', eyebrow: 'Same Game Parlay', title: '3-leg SGP, any matchup', caption: 'Build with one tap' },
+  { id: 'sgp-2', tone: 'navy', eyebrow: 'Same Game Parlay', title: 'Soccer goalscorer SGP', caption: 'Combine 3+ legs' },
+  { id: 'pp-1', tone: 'green', eyebrow: 'Prophet Picks', title: 'Top edges today', caption: 'Avg +5.2% edge' },
+  { id: 'pp-2', tone: 'green', eyebrow: 'Prophet Picks', title: 'A-grade picks: 4', caption: 'Tap to build a parlay' },
+  { id: 'pp-3', tone: 'green', eyebrow: 'Prophet Picks', title: 'Best NFL pick: KC ML', caption: '+6.8% edge, Low risk' },
+]
+
+function useRotatingPromos(slotCount = 3, intervalMs = 6000): PromoSlot[] {
+  const [offset, setOffset] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setOffset((current) => (current + 1) % PROMO_SLOTS.length)
+    }, intervalMs)
+
+    return () => clearInterval(id)
+  }, [intervalMs])
+
+  return useMemo(
+    () =>
+      Array.from({ length: slotCount }).map(
+        (_, index) => PROMO_SLOTS[(offset + index) % PROMO_SLOTS.length],
+      ),
+    [offset, slotCount],
+  )
+}
+
+function FdPromoStrip() {
+  const visible = useRotatingPromos()
+
+  return (
+    <div className="fd-promo-strip" aria-label="Promotions">
+      {visible.map((slot) => (
+        <article className={`fd-promo-card ${slot.tone}`} key={slot.id}>
+          <span>{slot.eyebrow}</span>
+          <strong>{slot.title}</strong>
+          <b>{slot.caption}</b>
+        </article>
+      ))}
+    </div>
+  )
+}
+
+// ----- Boosted Odds rail -----
+type BoostedOddsRow = {
+  id: string
+  eventId: string
+  marketId: string
+  label: string
+  originalDecimal: number
+  boostedDecimal: number
+}
+
+const BOOSTED_ODDS: BoostedOddsRow[] = [
+  { id: 'boost-chiefs', eventId: 'chiefs-bills', marketId: 'moneyline', label: 'KC Chiefs boost', originalDecimal: 1.74, boostedDecimal: 2.0 },
+  { id: 'boost-arsenal', eventId: 'arsenal-barcelona', marketId: 'match-odds', label: 'Gunners boost', originalDecimal: 4.0, boostedDecimal: 4.75 },
+  { id: 'boost-lakers', eventId: 'lakers-celtics', marketId: 'moneyline', label: 'Purple & Gold boost', originalDecimal: 1.82, boostedDecimal: 2.2 },
+  { id: 'boost-leafs', eventId: 'leafs-bruins', marketId: 'moneyline', label: 'Leafs boost', originalDecimal: 1.8, boostedDecimal: 2.1 },
+  { id: 'boost-alcaraz', eventId: 'alcaraz-sinner', marketId: 'winner', label: 'Carlos boost', originalDecimal: 1.84, boostedDecimal: 2.1 },
+]
+
+function FdBoostedOddsRail({
+  onAddSlipItem,
+}: {
+  onAddSlipItem: (item: LegacySlipItem) => void
+}) {
+  function addBoosted(boost: BoostedOddsRow): void {
+    const event = legacyEvents.find((candidate) => candidate.id === boost.eventId)
+    if (!event) {
+      return
+    }
+
+    const baseMarket = getMarketsForEvent(event).find(
+      (market) => market.id === boost.marketId,
+    )
+    if (!baseMarket) {
+      return
+    }
+
+    const baseSelection = baseMarket.selections[0]
+    onAddSlipItem({
+      event,
+      market: { ...baseMarket, label: `${baseMarket.label} (Boosted)` },
+      selection: {
+        id: `${baseSelection.id}-boost`,
+        label: boost.label,
+        odds: boost.boostedDecimal,
+        side: baseSelection.side,
+      },
+    })
+  }
+
+  return (
+    <section className="fd-boosted-rail" aria-label="Boosted Odds">
+      <header>
+        <span>Boosted Odds</span>
+        <small>Limited-time demo boosts</small>
+      </header>
+      <div className="fd-boosted-track">
+        {BOOSTED_ODDS.map((boost) => (
+          <button
+            className="fd-boosted-card"
+            key={boost.id}
+            type="button"
+            aria-label={`Add boosted ${boost.label} at ${formatDecimal(boost.boostedDecimal)} to slip`}
+            onClick={() => addBoosted(boost)}
+          >
+            <span>{boost.label}</span>
+            <div>
+              <s>{formatAmericanOdds(decimalToAmericanOdds(boost.originalDecimal))}</s>
+              <b>{formatAmericanOdds(decimalToAmericanOdds(boost.boostedDecimal))}</b>
+            </div>
+            <small>Boosted</small>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// ----- Live Now rail -----
+type LiveGame = {
+  id: string
+  eventId: string
+  league: string
+  status: string
+  homeCode: string
+  awayCode: string
+  homeScore: number
+  awayScore: number
+}
+
+const LIVE_GAMES_SEED: LiveGame[] = [
+  { id: 'live-chiefs', eventId: 'chiefs-bills', league: 'NFL', status: 'Q3 08:24', homeCode: 'KC', awayCode: 'BUF', homeScore: 17, awayScore: 14 },
+  { id: 'live-lakers', eventId: 'lakers-celtics', league: 'NBA', status: 'Q2 04:12', homeCode: 'LAL', awayCode: 'BOS', homeScore: 52, awayScore: 49 },
+  { id: 'live-arsenal', eventId: 'arsenal-barcelona', league: 'UCL', status: "65'", homeCode: 'ARS', awayCode: 'BAR', homeScore: 1, awayScore: 1 },
+  { id: 'live-leafs', eventId: 'leafs-bruins', league: 'NHL', status: 'P2 12:08', homeCode: 'TOR', awayCode: 'BOS', homeScore: 2, awayScore: 1 },
+]
+
+function FdLiveNowRail({
+  onAddSlipItem,
+}: {
+  onAddSlipItem: (item: LegacySlipItem) => void
+}) {
+  const [games, setGames] = useState<LiveGame[]>(LIVE_GAMES_SEED)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setGames((current) =>
+        current.map((game) => {
+          const tick = Math.random()
+          if (tick > 0.82) {
+            return {
+              ...game,
+              homeScore: game.homeScore + (game.league === 'UCL' ? 0 : 1),
+              status: nudgeStatus(game.status, game.league),
+            }
+          }
+          if (tick > 0.66) {
+            return {
+              ...game,
+              awayScore: game.awayScore + (game.league === 'UCL' ? 0 : 1),
+              status: nudgeStatus(game.status, game.league),
+            }
+          }
+          return { ...game, status: nudgeStatus(game.status, game.league) }
+        }),
+      )
+    }, 8000)
+
+    return () => clearInterval(id)
+  }, [])
+
+  function pickLiveMoneyline(eventId: string): LegacySlipItem | null {
+    const event = legacyEvents.find((candidate) => candidate.id === eventId)
+    if (!event) {
+      return null
+    }
+
+    const market = getMarketsForEvent(event).find((candidate) =>
+      ['moneyline', 'match-odds', 'winner'].includes(candidate.id),
+    )
+    if (!market) {
+      return null
+    }
+
+    return { event, market, selection: market.selections[0] }
+  }
+
+  return (
+    <section className="fd-live-rail" aria-label="Live Now">
+      <header>
+        <span className="fd-live-pill">
+          <span className="fd-live-dot" aria-hidden="true" />
+          Live Now
+        </span>
+        <small>{games.length} in-play</small>
+      </header>
+      <div className="fd-live-track">
+        {games.map((game) => (
+          <article className="fd-live-card" key={game.id}>
+            <span className="fd-live-meta">
+              {game.league} · {game.status}
+            </span>
+            <div className="fd-live-score">
+              <span>{`${game.homeCode} ${game.homeScore}`}</span>
+              <span>{`${game.awayCode} ${game.awayScore}`}</span>
+            </div>
+            <button
+              className="fd-live-bet"
+              type="button"
+              onClick={() => {
+                const item = pickLiveMoneyline(game.eventId)
+                if (item) {
+                  onAddSlipItem(item)
+                }
+              }}
+            >
+              Bet live ML
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function nudgeStatus(status: string, league: string): string {
+  if (league === 'UCL') {
+    const minute = Number.parseInt(status, 10)
+    if (Number.isFinite(minute) && minute < 90) {
+      return `${minute + 1}'`
+    }
+    return status
+  }
+
+  const match = status.match(/^(Q|P)(\d)\s+(\d{2}):(\d{2})$/)
+  if (!match) {
+    return status
+  }
+
+  const [, prefix, periodRaw, minutesRaw, secondsRaw] = match
+  const minutes = Number.parseInt(minutesRaw, 10)
+  const seconds = Number.parseInt(secondsRaw, 10)
+  const totalSeconds = minutes * 60 + seconds
+  const nextSeconds = totalSeconds - 30
+
+  if (nextSeconds <= 0) {
+    const nextPeriod = Number.parseInt(periodRaw, 10) + 1
+    if (nextPeriod > 4) {
+      return `${prefix}${periodRaw} 00:00`
+    }
+    return `${prefix}${nextPeriod} 12:00`
+  }
+
+  const nextMinutes = Math.floor(nextSeconds / 60)
+  const remainder = nextSeconds % 60
+  const mm = String(nextMinutes).padStart(2, '0')
+  const ss = String(remainder).padStart(2, '0')
+  return `${prefix}${periodRaw} ${mm}:${ss}`
+}
+
+// ----- Slip preview rail (perma-rail on desktop) -----
+function FdSlipPreviewRail({
+  items,
+  mode,
+  stakeInput,
+  onOpen,
+}: {
+  items: LegacySlipItem[]
+  mode: SlipMode
+  stakeInput: string
+  onOpen: () => void
+}) {
+  const width = useWindowWidth()
+  const stake = parseStake(stakeInput)
+  const returnValue = ticketReturn(items, mode, stake)
+  const grouped = groupItemsByEvent(items)
+
+  if (width < 1200) {
+    return null
+  }
+
+  return (
+    <aside className="fd-slip-rail" aria-label="Bet slip preview">
+      <header>
+        <strong>Bet Slip</strong>
+        <span>
+          {items.length} {items.length === 1 ? 'pick' : 'picks'}
+        </span>
+      </header>
+      <div className="fd-slip-rail-body">
+        {items.length === 0 && (
+          <p className="fd-slip-rail-empty">Tap any odds to start a slip.</p>
+        )}
+        {grouped.map((group) => (
+          <article
+            className={`fd-slip-rail-group ${group.items.length > 1 ? 'is-sgp' : ''}`}
+            key={group.eventId}
+          >
+            {group.items.length > 1 && (
+              <header>
+                <span>Same Game Parlay</span>
+                <b>
+                  {formatDecimal(
+                    group.items.reduce(
+                      (product, leg) => product * leg.selection.odds,
+                      1,
+                    ),
+                  )}
+                </b>
+              </header>
+            )}
+            {group.items.map((item) => (
+              <div
+                className="fd-slip-rail-leg"
+                key={`${item.event.id}-${item.market.id}-${item.selection.id}`}
+              >
+                <span>{item.selection.label}</span>
+                <em>{item.market.label}</em>
+                <b>{formatDecimal(item.selection.odds)}</b>
+              </div>
+            ))}
+          </article>
+        ))}
+      </div>
+      <footer>
+        <div>
+          <span>Stake</span>
+          <strong>${stake.toFixed(2)}</strong>
+        </div>
+        <div>
+          <span>To win</span>
+          <strong>${(returnValue - ticketRisk(items, mode, stake)).toFixed(2)}</strong>
+        </div>
+        <button type="button" onClick={onOpen} disabled={items.length === 0}>
+          Open slip
+        </button>
+      </footer>
+    </aside>
+  )
+}
+
+type SlipGroup = {
+  eventId: string
+  eventLabel: string
+  items: LegacySlipItem[]
+}
+
+function groupItemsByEvent(items: LegacySlipItem[]): SlipGroup[] {
+  const groups = new Map<string, SlipGroup>()
+
+  for (const item of items) {
+    const existing = groups.get(item.event.id)
+    if (existing) {
+      existing.items.push(item)
+    } else {
+      groups.set(item.event.id, {
+        eventId: item.event.id,
+        eventLabel: `${item.event.home} VS ${item.event.away}`,
+        items: [item],
+      })
+    }
+  }
+
+  return Array.from(groups.values())
+}
+
+// ----- Bottom mobile tab bar -----
+function FdBottomNav({
+  screen,
+  onNavigate,
+}: {
+  screen: Screen
+  onNavigate: (next: Screen) => void
+}) {
+  const width = useWindowWidth()
+
+  if (width === 0 || width > 720) {
+    return null
+  }
+
+  const tabs: Array<{ id: Screen; label: string; icon: typeof Trophy }> = [
+    { id: 'events', label: 'Sports', icon: Trophy },
+    { id: 'today', label: 'Live', icon: CalendarDays },
+    { id: 'bets', label: 'My Bets', icon: ClipboardList },
+    { id: 'odds', label: 'Promos', icon: TicketCheck },
+    { id: 'account', label: 'Account', icon: UserRound },
+  ]
+
+  return (
+    <nav className="fd-bottom-nav" aria-label="Primary mobile navigation">
+      {tabs.map((tab) => {
+        const Icon = tab.icon
+        return (
+          <button
+            className={screen === tab.id ? 'active' : ''}
+            key={tab.id}
+            type="button"
+            onClick={() => onNavigate(tab.id)}
+          >
+            <Icon size={20} aria-hidden="true" />
+            <span>{tab.label}</span>
+          </button>
+        )
+      })}
+    </nav>
+  )
+}
+
