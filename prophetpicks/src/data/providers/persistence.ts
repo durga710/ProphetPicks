@@ -183,6 +183,68 @@ export async function loadSchedule(
   )
 }
 
+export interface NewsArticle {
+  id: string
+  headline: string
+  description: string
+  image: string | null
+  published: string
+  link: string | null
+  type: string
+}
+
+interface NewsApiResponse {
+  source: 'espn' | 'demo'
+  sport: string
+  articles: NewsArticle[]
+  generatedAt: string
+}
+
+export async function loadNews(sport: string): Promise<NewsApiResponse | null> {
+  if (!sport) {
+    return null
+  }
+  return safeFetchJson<NewsApiResponse>(
+    `/api/news?sport=${encodeURIComponent(sport)}`,
+  )
+}
+
+export interface PickcenterSnapshot {
+  provider: string
+  spread: number | null
+  total: number | null
+  homeMoneyLine: number | null
+  awayMoneyLine: number | null
+}
+
+export interface RealStatPack {
+  source: 'espn' | 'demo'
+  sport: string
+  eventId: string
+  homeName: string
+  awayName: string
+  homeForm: string
+  awayForm: string
+  headToHead: string[]
+  injuries: string[]
+  leaders: string[]
+  pickcenter: PickcenterSnapshot | null
+  angle: string
+  generatedAt: string
+}
+
+export async function loadRealStatPack(
+  sport: string,
+  eventId: string,
+): Promise<RealStatPack | null> {
+  if (!sport || !eventId) {
+    return null
+  }
+  return safeFetchJson<RealStatPack>(
+    `/api/stat-pack?sport=${encodeURIComponent(sport)}&eventId=${encodeURIComponent(eventId)}`,
+  )
+}
+
 export interface TeamLogoLookup {
   name: string
   sport?: string

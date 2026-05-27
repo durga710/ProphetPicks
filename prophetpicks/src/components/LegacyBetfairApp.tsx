@@ -53,11 +53,15 @@ import { loadOddsQuotes } from '../data/providers/oddsApi'
 import {
   loadBets,
   loadLiveState,
+  loadNews,
+  loadRealStatPack,
   loadSavedSlips,
   loadSchedule,
   loadTeamLogo,
   saveBet,
   saveSlip,
+  type NewsArticle,
+  type RealStatPack,
   type ScheduleGame,
 } from '../data/providers/persistence'
 
@@ -230,6 +234,11 @@ export function LegacyBetfairApp() {
   const [stakeInput, setStakeInput] = useState('10.00')
   const [legalTopic, setLegalTopic] = useState<LegalTopic | null>(null)
   const [statPackEvent, setStatPackEvent] = useState<LegacyEvent | null>(null)
+  const [realStatPack, setRealStatPack] = useState<{
+    sport: SportKey
+    eventId: string
+    title: string
+  } | null>(null)
   const [savedSlips, setSavedSlips] = useState<SavedSlipSummary[]>([])
   const [headerSearch, setHeaderSearch] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -686,7 +695,17 @@ export function LegacyBetfairApp() {
                 eventCount={activeEvents.length}
                 events={activeEvents}
               />
-              <FdRealScheduleRail sport={activeSport} />
+              <FdRealScheduleRail
+                sport={activeSport}
+                onOpenStatPack={(game) =>
+                  setRealStatPack({
+                    sport: activeSport,
+                    eventId: game.id,
+                    title: game.longName,
+                  })
+                }
+              />
+              <FdNewsRail sport={activeSport} />
               <FdFeaturedHero sport={activeSport} onAddSlipItem={addSlipItem} />
               <FdPromoStrip sport={activeSport} />
               <FdBoostedOddsRail
@@ -897,6 +916,15 @@ export function LegacyBetfairApp() {
         <FdStatPackDrawer
           event={statPackEvent}
           onClose={() => setStatPackEvent(null)}
+        />
+      )}
+
+      {realStatPack && (
+        <FdRealStatPackDrawer
+          sport={realStatPack.sport}
+          eventId={realStatPack.eventId}
+          fallbackTitle={realStatPack.title}
+          onClose={() => setRealStatPack(null)}
         />
       )}
 
@@ -2834,7 +2862,13 @@ function useWindowWidth(): number {
 }
 
 // ----- Today's Real Games rail (ESPN) -----
-function FdRealScheduleRail({ sport }: { sport: SportKey }) {
+function FdRealScheduleRail({
+  sport,
+  onOpenStatPack,
+}: {
+  sport: SportKey
+  onOpenStatPack: (game: ScheduleGame) => void
+}) {
   // Key the state by sport so switching sports drops the stale list
   // synchronously (rather than via a setState-in-effect that lint dislikes).
   const [state, setState] = useState<{
@@ -2940,7 +2974,13 @@ function FdRealScheduleRail({ sport }: { sport: SportKey }) {
           const isLive = game.state === 'in'
 
           return (
-            <article className="fd-real-schedule-card" key={game.id}>
+            <button
+              className="fd-real-schedule-card"
+              key={game.id}
+              type="button"
+              aria-label={`Open stat pack for ${game.longName}`}
+              onClick={() => onOpenStatPack(game)}
+            >
               <span className="fd-real-schedule-league">{game.league}</span>
               <div className="fd-real-schedule-matchup">
                 <FdRealTeamLine team={game.away} />
@@ -2950,7 +2990,7 @@ function FdRealScheduleRail({ sport }: { sport: SportKey }) {
                 {isLive && <span className="fd-live-dot" aria-hidden="true" />}
                 {stateLabel}
               </span>
-            </article>
+            </button>
           )
         })}
       </div>
@@ -2978,6 +3018,261 @@ function FdRealTeamLine({ team }: { team: ScheduleGame['home'] }) {
       )}
       <strong>{team.name}</strong>
       {team.score !== null && <b>{team.score}</b>}
+    </div>
+  )
+}
+
+// ----- Today's News rail (ESPN) -----
+function FdNewsRail({ sport }: { sport: SportKey }) {
+  const [state, setState] = useState<{ sport: SportKey; articles: NewsArticle[]; loaded: boolean }>({
+    sport,
+    articles: [],
+    loaded: false,
+  })
+
+  useEffect(() => {
+    if (!import.meta.env.PROD) {
+      return
+    }
+    let cancelled = false
+
+    loadNews(sport).then((response) => {
+      if (cancelled) {
+        return
+      }
+      setState({ sport, articles: response?.articles ?? [], loaded: true })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [sport])
+
+  if (!import.meta.env.PROD) {
+    return null
+  }
+  const stale = state.sport !== sport
+  const loaded = !stale && state.loaded
+  const articles = stale ? [] : state.articles
+
+  if (loaded && articles.length === 0) {
+    return null
+  }
+
+  if (!loaded) {
+    return (
+      <section className="fd-news-rail" aria-label="Sport news loading">
+        <header>
+          <span>Today's stories</span>
+          <small>Loading from ESPN…</small>
+        </header>
+        <div className="fd-news-track">
+          {[0, 1, 2].map((index) => (
+            <article
+              key={`news-skeleton-${index}`}
+              className="fd-news-card is-skeleton"
+              aria-hidden="true"
+            >
+              <div className="fd-news-thumb" />
+              <strong>—</strong>
+              <small>—</small>
+            </article>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="fd-news-rail" aria-label="Sport news">
+      <header>
+        <span>Today's stories</span>
+        <small>ESPN · {articles.length} headlines</small>
+      </header>
+      <div className="fd-news-track">
+        {articles.map((article) => {
+          const time = (() => {
+            const date = new Date(article.published)
+            return Number.isFinite(date.getTime())
+              ? date.toLocaleString([], {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : article.published
+          })()
+
+          const inner = (
+            <>
+              <div
+                className="fd-news-thumb"
+                style={
+                  article.image
+                    ? {
+                        backgroundImage: `url(${JSON.stringify(article.image)})`,
+                      }
+                    : undefined
+                }
+                aria-hidden="true"
+              />
+              <strong>{article.headline}</strong>
+              <small>{time}</small>
+            </>
+          )
+
+          return article.link ? (
+            <a
+              className="fd-news-card"
+              key={article.id}
+              href={article.link}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              {inner}
+            </a>
+          ) : (
+            <article className="fd-news-card" key={article.id}>
+              {inner}
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+// ----- Real ESPN stat-pack drawer -----
+function FdRealStatPackDrawer({
+  sport,
+  eventId,
+  fallbackTitle,
+  onClose,
+}: {
+  sport: SportKey
+  eventId: string
+  fallbackTitle: string
+  onClose: () => void
+}) {
+  const [pack, setPack] = useState<RealStatPack | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    loadRealStatPack(sport, eventId).then((result) => {
+      if (cancelled) {
+        return
+      }
+      setPack(result)
+      setLoaded(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [eventId, sport])
+
+  const title = pack?.homeName && pack?.awayName
+    ? `${pack.awayName} @ ${pack.homeName}`
+    : fallbackTitle
+
+  return (
+    <div className="legacy-modal-backdrop fd-statpack-backdrop">
+      <section
+        className="legacy-dialog fd-statpack-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`real-statpack-${eventId}`}
+      >
+        <button
+          className="legacy-close"
+          type="button"
+          aria-label="Close stat pack"
+          onClick={onClose}
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
+        <p>Live stat pack · ESPN</p>
+        <h2 id={`real-statpack-${eventId}`}>{title}</h2>
+
+        {!loaded && (
+          <p className="fd-statpack-empty">Loading stats from ESPN…</p>
+        )}
+
+        {loaded && !pack && (
+          <p className="fd-statpack-empty">
+            ESPN didn't return stats for this matchup. Try again closer to
+            kickoff.
+          </p>
+        )}
+
+        {loaded && pack && (
+          <>
+            <div className="fd-statpack-grid">
+              <article>
+                <span>{pack.awayName || 'Away'} form</span>
+                <strong>{pack.awayForm || '—'}</strong>
+              </article>
+              <article>
+                <span>{pack.homeName || 'Home'} form</span>
+                <strong>{pack.homeForm || '—'}</strong>
+              </article>
+            </div>
+
+            {pack.pickcenter && (
+              <section className="fd-statpack-section">
+                <h3>Live line · {pack.pickcenter.provider}</h3>
+                <ul>
+                  {pack.pickcenter.spread !== null && (
+                    <li>Spread: {pack.pickcenter.spread > 0 ? '+' : ''}{pack.pickcenter.spread}</li>
+                  )}
+                  {pack.pickcenter.total !== null && (
+                    <li>Total: {pack.pickcenter.total}</li>
+                  )}
+                  {pack.pickcenter.homeMoneyLine !== null && (
+                    <li>Home ML: {pack.pickcenter.homeMoneyLine > 0 ? '+' : ''}{pack.pickcenter.homeMoneyLine}</li>
+                  )}
+                  {pack.pickcenter.awayMoneyLine !== null && (
+                    <li>Away ML: {pack.pickcenter.awayMoneyLine > 0 ? '+' : ''}{pack.pickcenter.awayMoneyLine}</li>
+                  )}
+                </ul>
+              </section>
+            )}
+
+            {pack.injuries.length > 0 && (
+              <section className="fd-statpack-section">
+                <h3>Injuries & status</h3>
+                <ul>
+                  {pack.injuries.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {pack.leaders.length > 0 && (
+              <section className="fd-statpack-section">
+                <h3>Team leaders</h3>
+                <ul>
+                  {pack.leaders.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {pack.headToHead.length > 0 && (
+              <section className="fd-statpack-section">
+                <h3>Head-to-head</h3>
+                <ul>
+                  {pack.headToHead.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        )}
+      </section>
     </div>
   )
 }

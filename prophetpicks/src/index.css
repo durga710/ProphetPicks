@@ -3795,6 +3795,122 @@ img {
   letter-spacing: 0.3px;
 }
 
+/* ===== NEWS RAIL (ESPN) ===== */
+.fd-news-rail {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-surface-line);
+  border-left: 4px solid var(--fd-navy);
+  border-radius: var(--fd-radius-md);
+  box-shadow: var(--fd-shadow-sm);
+}
+
+.fd-news-rail header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fd-news-rail header span {
+  color: var(--fd-text);
+  font-size: 12px;
+  font-weight: 880;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.fd-news-rail header small {
+  color: var(--fd-text-muted);
+  font-size: 10px;
+  font-weight: 720;
+}
+
+.fd-news-track {
+  display: grid;
+  grid-auto-columns: minmax(220px, 1fr);
+  grid-auto-flow: column;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x mandatory;
+}
+
+.fd-news-card {
+  display: grid;
+  grid-template-rows: 110px auto auto;
+  gap: 4px;
+  padding: 0;
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-surface-line);
+  border-radius: var(--fd-radius-md);
+  overflow: hidden;
+  scroll-snap-align: start;
+  color: var(--fd-text);
+  text-decoration: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fd-news-card.is-skeleton {
+  pointer-events: none;
+}
+
+.fd-news-card.is-skeleton > * {
+  visibility: hidden;
+}
+
+.fd-news-card.is-skeleton::before {
+  position: absolute;
+  inset: 8px;
+  content: '';
+  background: linear-gradient(
+    90deg,
+    var(--fd-surface-alt) 0%,
+    var(--fd-surface-line) 50%,
+    var(--fd-surface-alt) 100%
+  );
+  background-size: 200% 100%;
+  animation: fd-shimmer 1.4s linear infinite;
+  border-radius: var(--fd-radius-sm);
+}
+
+.fd-news-thumb {
+  width: 100%;
+  height: 110px;
+  background: var(--fd-surface-alt) center / cover no-repeat;
+}
+
+.fd-news-card strong {
+  margin: 0 10px;
+  color: var(--fd-text);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fd-news-card small {
+  margin: 0 10px 10px;
+  color: var(--fd-text-muted);
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0.3px;
+}
+
+a.fd-news-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--fd-ring-medium);
+  border-color: var(--fd-blue);
+}
+
 /* ===== TODAY'S REAL GAMES RAIL (ESPN) ===== */
 .fd-real-schedule {
   display: grid;
