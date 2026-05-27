@@ -3965,14 +3965,135 @@ a.fd-news-card:hover {
 
 .fd-real-schedule-card {
   display: grid;
-  gap: 8px;
-  align-content: space-between;
-  min-height: 130px;
-  padding: 12px;
+  gap: 0;
+  align-content: start;
+  min-height: 150px;
+  padding: 0;
   background: var(--fd-surface);
   border: 1px solid var(--fd-surface-line);
   border-radius: var(--fd-radius-md);
   scroll-snap-align: start;
+  overflow: hidden;
+}
+
+.fd-real-schedule-head {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--fd-surface-line);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+}
+
+.fd-real-schedule-head:hover {
+  background: var(--fd-surface-alt);
+}
+
+/* Odds grid inside real-schedule card */
+.fd-real-odds-grid {
+  display: grid;
+  grid-template-columns: minmax(40px, auto) repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 6px 8px 8px;
+}
+
+.fd-real-odds-grid.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 10px;
+  color: var(--fd-text-muted);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.fd-real-odds-head {
+  display: contents;
+}
+
+.fd-real-odds-head span {
+  padding: 2px 4px;
+  color: var(--fd-text-muted);
+  font-size: 9px;
+  font-weight: 880;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.fd-real-odds-head span:first-child {
+  text-align: left;
+}
+
+.fd-real-odds-row {
+  display: contents;
+}
+
+.fd-real-odds-team {
+  padding: 6px 4px;
+  color: var(--fd-text-muted);
+  font-size: 11px;
+  font-weight: 880;
+  letter-spacing: 0.3px;
+  align-self: center;
+}
+
+.fd-real-odds-cell {
+  display: grid;
+  align-content: center;
+  gap: 0;
+  margin: 2px;
+  padding: 5px 4px;
+  color: var(--fd-text);
+  text-align: center;
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-surface-line);
+  border-radius: var(--fd-radius-sm);
+  font-size: 11px;
+  font-weight: 720;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 100ms ease,
+    border-color 100ms ease,
+    transform 100ms ease;
+}
+
+.fd-real-odds-cell:hover {
+  background: var(--fd-blue-soft);
+  border-color: var(--fd-blue);
+  transform: translateY(-1px);
+}
+
+.fd-real-odds-cell.is-empty {
+  display: grid;
+  place-items: center;
+  margin: 2px;
+  padding: 5px 4px;
+  color: var(--fd-text-muted);
+  background: var(--fd-surface-alt);
+  border: 1px dashed var(--fd-surface-line);
+  border-radius: var(--fd-radius-sm);
+  font-size: 11px;
+  cursor: default;
+}
+
+.fd-real-odds-line {
+  color: var(--fd-text-muted);
+  font-size: 9px;
+  font-weight: 720;
+}
+
+.fd-real-odds-cell strong {
+  color: var(--fd-text);
+  font-size: 11px;
+  font-weight: 880;
+  font-variant-numeric: tabular-nums;
 }
 
 .fd-real-schedule-league {

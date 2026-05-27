@@ -21,6 +21,15 @@ interface ScheduleTeam {
   score: number | null
 }
 
+interface ScheduleOdds {
+  provider: string
+  details: string
+  spread: number | null
+  total: number | null
+  homeMoneyLine: number | null
+  awayMoneyLine: number | null
+}
+
 interface ScheduleGame {
   id: string
   shortName: string
@@ -32,6 +41,7 @@ interface ScheduleGame {
   venue: string | null
   home: ScheduleTeam
   away: ScheduleTeam
+  odds: ScheduleOdds | null
 }
 
 interface ScheduleResponse {
@@ -74,10 +84,20 @@ interface EspnVenue {
   fullName?: string
 }
 
+interface EspnOddsBlock {
+  provider?: { name?: string }
+  details?: string
+  spread?: number | string
+  overUnder?: number | string
+  homeTeamOdds?: { moneyLine?: number | string }
+  awayTeamOdds?: { moneyLine?: number | string }
+}
+
 interface EspnCompetition {
   competitors?: EspnCompetitor[]
   status?: EspnStatus
   venue?: EspnVenue
+  odds?: EspnOddsBlock[]
 }
 
 interface EspnEvent {
@@ -238,7 +258,34 @@ function normalizeEvent(leagueLabel: string, event: EspnEvent): ScheduleGame | n
     venue: competition.venue?.fullName ?? null,
     home: toTeam(home),
     away: toTeam(away),
+    odds: normalizeOdds(competition.odds),
   }
+}
+
+function normalizeOdds(blocks: EspnOddsBlock[] | undefined): ScheduleOdds | null {
+  const first = blocks?.[0]
+  if (!first) {
+    return null
+  }
+  return {
+    provider: first.provider?.name ?? 'Sportsbook',
+    details: first.details ?? '',
+    spread: toFloat(first.spread),
+    total: toFloat(first.overUnder),
+    homeMoneyLine: toFloat(first.homeTeamOdds?.moneyLine),
+    awayMoneyLine: toFloat(first.awayTeamOdds?.moneyLine),
+  }
+}
+
+function toFloat(value: number | string | undefined): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
 }
 
 function toTeam(c: EspnCompetitor): ScheduleTeam {

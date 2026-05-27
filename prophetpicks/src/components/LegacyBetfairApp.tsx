@@ -64,6 +64,11 @@ import {
   type RealStatPack,
   type ScheduleGame,
 } from '../data/providers/persistence'
+import {
+  buildRealSlipItem,
+  type RealMarketKey,
+  type RealSelectionSide,
+} from '../data/realSlipItems'
 
 type Screen =
   | 'account'
@@ -697,6 +702,8 @@ export function LegacyBetfairApp() {
               />
               <FdRealScheduleRail
                 sport={activeSport}
+                oddsFormat={oddsFormat}
+                onAddSlipItem={addSlipItem}
                 onOpenStatPack={(game) =>
                   setRealStatPack({
                     sport: activeSport,
@@ -2865,9 +2872,13 @@ function useWindowWidth(): number {
 function FdRealScheduleRail({
   sport,
   onOpenStatPack,
+  onAddSlipItem,
+  oddsFormat,
 }: {
   sport: SportKey
   onOpenStatPack: (game: ScheduleGame) => void
+  onAddSlipItem: (item: LegacySlipItem) => void
+  oddsFormat: OddsFormat
 }) {
   // Key the state by sport so switching sports drops the stale list
   // synchronously (rather than via a setState-in-effect that lint dislikes).
@@ -2974,28 +2985,178 @@ function FdRealScheduleRail({
           const isLive = game.state === 'in'
 
           return (
-            <button
-              className="fd-real-schedule-card"
-              key={game.id}
-              type="button"
-              aria-label={`Open stat pack for ${game.longName}`}
-              onClick={() => onOpenStatPack(game)}
-            >
-              <span className="fd-real-schedule-league">{game.league}</span>
-              <div className="fd-real-schedule-matchup">
-                <FdRealTeamLine team={game.away} />
-                <FdRealTeamLine team={game.home} />
-              </div>
-              <span className={`fd-real-schedule-status ${isLive ? 'is-live' : ''}`}>
-                {isLive && <span className="fd-live-dot" aria-hidden="true" />}
-                {stateLabel}
-              </span>
-            </button>
+            <article className="fd-real-schedule-card" key={game.id}>
+              <button
+                className="fd-real-schedule-head"
+                type="button"
+                aria-label={`Open stat pack for ${game.longName}`}
+                onClick={() => onOpenStatPack(game)}
+              >
+                <span className="fd-real-schedule-league">{game.league}</span>
+                <div className="fd-real-schedule-matchup">
+                  <FdRealTeamLine team={game.away} />
+                  <FdRealTeamLine team={game.home} />
+                </div>
+                <span
+                  className={`fd-real-schedule-status ${isLive ? 'is-live' : ''}`}
+                >
+                  {isLive && <span className="fd-live-dot" aria-hidden="true" />}
+                  {stateLabel}
+                </span>
+              </button>
+              <FdRealOddsGrid
+                game={game}
+                onAdd={onAddSlipItem}
+                oddsFormat={oddsFormat}
+              />
+            </article>
           )
         })}
       </div>
     </section>
   )
+}
+
+function FdRealOddsGrid({
+  game,
+  onAdd,
+  oddsFormat,
+}: {
+  game: ScheduleGame
+  onAdd: (item: LegacySlipItem) => void
+  oddsFormat: OddsFormat
+}) {
+  if (!game.odds) {
+    return (
+      <div className="fd-real-odds-grid is-empty">
+        <span>Lines not posted yet</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fd-real-odds-grid">
+      <div className="fd-real-odds-head">
+        <span>Spread</span>
+        <span>Total</span>
+        <span>Money</span>
+      </div>
+      <FdRealOddsRow
+        game={game}
+        side="away"
+        teamLabel={game.away.code || game.away.name.slice(0, 4).toUpperCase()}
+        oddsFormat={oddsFormat}
+        onAdd={onAdd}
+      />
+      <FdRealOddsRow
+        game={game}
+        side="home"
+        teamLabel={game.home.code || game.home.name.slice(0, 4).toUpperCase()}
+        oddsFormat={oddsFormat}
+        onAdd={onAdd}
+      />
+    </div>
+  )
+}
+
+function FdRealOddsRow({
+  game,
+  side,
+  teamLabel,
+  oddsFormat,
+  onAdd,
+}: {
+  game: ScheduleGame
+  side: 'home' | 'away'
+  teamLabel: string
+  oddsFormat: OddsFormat
+  onAdd: (item: LegacySlipItem) => void
+}) {
+  const totalSide: RealSelectionSide = side === 'home' ? 'under' : 'over'
+
+  return (
+    <div className="fd-real-odds-row">
+      <span className="fd-real-odds-team">{teamLabel}</span>
+      <FdRealOddsCell
+        game={game}
+        market="spread"
+        side={side}
+        oddsFormat={oddsFormat}
+        onAdd={onAdd}
+      />
+      <FdRealOddsCell
+        game={game}
+        market="total"
+        side={totalSide}
+        oddsFormat={oddsFormat}
+        onAdd={onAdd}
+      />
+      <FdRealOddsCell
+        game={game}
+        market="moneyline"
+        side={side}
+        oddsFormat={oddsFormat}
+        onAdd={onAdd}
+      />
+    </div>
+  )
+}
+
+function FdRealOddsCell({
+  game,
+  market,
+  side,
+  oddsFormat,
+  onAdd,
+}: {
+  game: ScheduleGame
+  market: RealMarketKey
+  side: RealSelectionSide
+  oddsFormat: OddsFormat
+  onAdd: (item: LegacySlipItem) => void
+}) {
+  const built = buildRealSlipItem({ game, market, side })
+
+  if (!built) {
+    return (
+      <span className="fd-real-odds-cell is-empty" aria-hidden="true">
+        —
+      </span>
+    )
+  }
+
+  const price = formatPrice(built.decimalOdds, oddsFormat)
+  const linePart = extractLinePart(built.selectionLabel)
+
+  return (
+    <button
+      className="fd-real-odds-cell"
+      type="button"
+      aria-label={`Add ${built.selectionLabel} at ${price} to slip`}
+      onClick={() => onAdd(built.item)}
+    >
+      {linePart && <span className="fd-real-odds-line">{linePart}</span>}
+      <strong>{price}</strong>
+    </button>
+  )
+}
+
+function extractLinePart(selectionLabel: string): string | null {
+  // For "Chiefs -3.5" return "-3.5"; for "Over 44.5" return "O 44.5";
+  // for "Under 44.5" return "U 44.5"; for plain "Team ML" return null.
+  const overMatch = selectionLabel.match(/^Over (.+)$/)
+  if (overMatch) {
+    return `O ${overMatch[1]}`
+  }
+  const underMatch = selectionLabel.match(/^Under (.+)$/)
+  if (underMatch) {
+    return `U ${underMatch[1]}`
+  }
+  const spreadMatch = selectionLabel.match(/(-?\+?-?\d+(?:\.\d+)?)$/)
+  if (spreadMatch && !selectionLabel.endsWith(' ML')) {
+    return spreadMatch[1]
+  }
+  return null
 }
 
 function FdRealTeamLine({ team }: { team: ScheduleGame['home'] }) {

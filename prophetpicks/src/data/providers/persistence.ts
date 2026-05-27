@@ -147,6 +147,15 @@ export interface ScheduleTeam {
   score: number | null
 }
 
+export interface ScheduleOdds {
+  provider: string
+  details: string
+  spread: number | null
+  total: number | null
+  homeMoneyLine: number | null
+  awayMoneyLine: number | null
+}
+
 export interface ScheduleGame {
   id: string
   shortName: string
@@ -158,6 +167,7 @@ export interface ScheduleGame {
   venue: string | null
   home: ScheduleTeam
   away: ScheduleTeam
+  odds: ScheduleOdds | null
 }
 
 interface ScheduleApiResponse {
