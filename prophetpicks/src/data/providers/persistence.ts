@@ -134,26 +134,43 @@ export async function loadSavedSlips(): Promise<SlipsListApiResponse | null> {
 }
 
 interface TeamLogoApiResponse {
-  source: 'sportsdb' | 'demo'
+  source: 'espn-cdn' | 'none'
   name: string
   logoUrl: string | null
   sport: string | null
 }
 
+export interface TeamLogoLookup {
+  name: string
+  sport?: string
+  code?: string
+}
+
 /**
- * Resolve a real team badge URL from the server proxy (TheSportsDB v1).
- * Returns null on any error or when the upstream has no badge on file.
+ * Resolve a real team badge URL from the server (ESPN CDN URL builder).
+ * Returns null when the team has no logo on file.
  */
-export async function loadTeamLogo(name: string): Promise<string | null> {
-  if (!name) {
+export async function loadTeamLogo(lookup: TeamLogoLookup): Promise<string | null> {
+  if (!lookup.name && !lookup.code) {
     return null
   }
 
+  const params = new URLSearchParams()
+  if (lookup.name) {
+    params.set('name', lookup.name)
+  }
+  if (lookup.sport) {
+    params.set('sport', lookup.sport)
+  }
+  if (lookup.code) {
+    params.set('code', lookup.code)
+  }
+
   const json = await safeFetchJson<TeamLogoApiResponse>(
-    `/api/team-logo?name=${encodeURIComponent(name)}`,
+    `/api/team-logo?${params.toString()}`,
   )
 
-  if (!json || json.source !== 'sportsdb' || !json.logoUrl) {
+  if (!json || !json.logoUrl) {
     return null
   }
 

@@ -1221,6 +1221,7 @@ function EventsScreen({
                               primary={event.homePrimary}
                               secondary={event.homeSecondary}
                               logoUrl={event.homeLogoUrl}
+                              sport={event.sport}
                             />
                             {event.home}
                           </span>
@@ -1231,6 +1232,7 @@ function EventsScreen({
                               primary={event.awayPrimary}
                               secondary={event.awaySecondary}
                               logoUrl={event.awayLogoUrl}
+                              sport={event.sport}
                             />
                             {event.away}
                           </span>
@@ -1295,14 +1297,16 @@ function TeamCrest({
   primary,
   secondary,
   logoUrl,
+  sport = '',
 }: {
   label: string
   code: string
   primary: string
   secondary: string
   logoUrl?: string
+  sport?: string
 }) {
-  const resolvedLogo = useRealTeamLogo(label, logoUrl)
+  const resolvedLogo = useRealTeamLogo(label, sport, code, logoUrl)
 
   return (
     <span className="legacy-team-crest-wrap">
@@ -1363,6 +1367,7 @@ function MarketScreen({
                 primary={event.homePrimary}
                 secondary={event.homeSecondary}
                 logoUrl={event.homeLogoUrl}
+                sport={event.sport}
               />
               <span className="legacy-versus">VS</span>
               <TeamCrest
@@ -1371,6 +1376,7 @@ function MarketScreen({
                 primary={event.awayPrimary}
                 secondary={event.awaySecondary}
                 logoUrl={event.awayLogoUrl}
+                sport={event.sport}
               />
             </span>
           </h1>
@@ -1445,6 +1451,7 @@ function SelectionLabel({ event, label }: { event: LegacyEvent; label: string })
           primary={event.homePrimary}
           secondary={event.homeSecondary}
           logoUrl={event.homeLogoUrl}
+          sport={event.sport}
         />
       </strong>
     )
@@ -1459,6 +1466,7 @@ function SelectionLabel({ event, label }: { event: LegacyEvent; label: string })
           primary={event.awayPrimary}
           secondary={event.awaySecondary}
           logoUrl={event.awayLogoUrl}
+          sport={event.sport}
         />
       </strong>
     )
@@ -1691,6 +1699,7 @@ function TeamsScreen({ teams }: { teams: LegacyTeam[] }) {
               primary={team.primary}
               secondary={team.secondary}
               logoUrl={team.logoUrl}
+              sport={team.sport}
             />
             <div>
               <strong>{team.name}</strong>
@@ -2745,19 +2754,25 @@ function OddsBoardTile({
 const teamLogoCache = new Map<string, string | null>()
 const teamLogoInflight = new Map<string, Promise<string | null>>()
 
-function useRealTeamLogo(name: string, explicit?: string): string | undefined {
+function useRealTeamLogo(
+  name: string,
+  sport: string,
+  code: string,
+  explicit?: string,
+): string | undefined {
+  const cacheKey = `${sport}:${code}:${name}`
   // Synchronous resolution: explicit prop wins, else hit the per-session cache
   // (which is a plain Map populated by previous renders' async fetches).
   const synchronous: string | undefined = explicit
     ? explicit
-    : teamLogoCache.has(name)
-      ? teamLogoCache.get(name) ?? undefined
+    : teamLogoCache.has(cacheKey)
+      ? teamLogoCache.get(cacheKey) ?? undefined
       : undefined
 
   const [asyncResolved, setAsyncResolved] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    if (explicit || !name || teamLogoCache.has(name)) {
+    if (explicit || !name || teamLogoCache.has(cacheKey)) {
       return
     }
     // The /api/team-logo route only exists in the deployed Vercel build.
@@ -2770,13 +2785,13 @@ function useRealTeamLogo(name: string, explicit?: string): string | undefined {
 
     let cancelled = false
     const inflight =
-      teamLogoInflight.get(name) ??
-      loadTeamLogo(name).then((url) => {
-        teamLogoCache.set(name, url)
-        teamLogoInflight.delete(name)
+      teamLogoInflight.get(cacheKey) ??
+      loadTeamLogo({ name, sport, code }).then((url) => {
+        teamLogoCache.set(cacheKey, url)
+        teamLogoInflight.delete(cacheKey)
         return url
       })
-    teamLogoInflight.set(name, inflight)
+    teamLogoInflight.set(cacheKey, inflight)
 
     inflight.then((url) => {
       if (!cancelled) {
@@ -2787,7 +2802,7 @@ function useRealTeamLogo(name: string, explicit?: string): string | undefined {
     return () => {
       cancelled = true
     }
-  }, [explicit, name])
+  }, [cacheKey, code, explicit, name, sport])
 
   return synchronous ?? asyncResolved
 }

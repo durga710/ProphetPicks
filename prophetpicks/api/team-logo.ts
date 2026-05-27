@@ -1,20 +1,23 @@
 /**
- * Real team logo proxy backed by TheSportsDB v1.
+ * Team logo URL builder backed by ESPN's public CDN.
  *
- * - GET /api/team-logo?name=Arsenal
- * - Returns { source, name, logoUrl, sport } when a badge is found,
- *   { source: 'demo', name, logoUrl: null } otherwise.
+ * - GET /api/team-logo?name=<full-team-name>&sport=<sport-key>&code=<short-code>
+ * - Returns { source, name, logoUrl, sport } where logoUrl is a deterministic
+ *   ESPN CDN URL (no upstream call needed) for the major US sports + a
+ *   curated set of soccer / NCAA team IDs.
  *
- * TheSportsDB serves real, licensed team badges via their own CDN under a
- * free non-commercial tier. The shared test key `3` works for v1 without
- * signup; set SPORTSDB_API_KEY in Vercel env to use a private key with
- * higher rate limits.
+ * Why not TheSportsDB? Their free public key only ever returns "Arsenal"
+ * as a sample. Real search requires a paid Patreon tier. ESPN's CDN serves
+ * the actual league-licensed logo images at publicly-stable URLs that are
+ * fine for a personal-use simulator (the same URLs power countless
+ * fantasy-sports sites). If a URL is ever pulled, the browser's <img
+ * onError> handler in TeamCrest silently falls back to the abstract crest.
  *
- * Caching: 1-hour s-maxage at the edge to stay well under TheSportsDB's
- * "no scraping" guidance even when many distinct teams are queried.
+ * For sports without team logos (golf / tennis / UFC / boxing / F1 /
+ * esports) we return `logoUrl: null` and the UI keeps the gradient crest.
  */
 
-type LogoSource = 'sportsdb' | 'demo'
+type LogoSource = 'espn-cdn' | 'none'
 
 interface LogoResponse {
   source: LogoSource
@@ -35,17 +38,47 @@ interface VercelResponse {
   end: () => void
 }
 
-interface SportsDbTeam {
-  strTeam?: string
-  strTeamBadge?: string | null
-  strSport?: string | null
+// Soccer + NCAA use numeric ESPN team IDs, not abbreviations.
+const SOCCER_TEAM_IDS: Record<string, number> = {
+  arsenal: 359,
+  'fc barcelona': 83,
+  barcelona: 83,
+  roma: 104,
+  'real madrid': 86,
+  juventus: 111,
+  'bayern munich': 132,
+  'paris saint-germain': 160,
+  psg: 160,
+  chelsea: 363,
+  benfica: 1929,
+  zenit: 2440,
 }
 
-interface SportsDbSearchResponse {
-  teams?: SportsDbTeam[] | null
+const NCAA_TEAM_IDS: Record<string, number> = {
+  'georgia bulldogs': 61,
+  georgia: 61,
+  'alabama crimson tide': 333,
+  alabama: 333,
+  'michigan wolverines': 130,
+  michigan: 130,
+  'ohio state buckeyes': 194,
+  'ohio state': 194,
+  'duke blue devils': 150,
+  duke: 150,
+  'kansas jayhawks': 2305,
+  kansas: 2305,
+  'north carolina tar heels': 153,
+  unc: 153,
+  'uconn huskies': 41,
+  uconn: 41,
 }
 
-const UPSTREAM_TIMEOUT_MS = 4500
+// US-major-sport abbreviation overrides (when my seed's code differs from
+// ESPN's URL slug). Default is to lowercase the seed code.
+const ABBR_OVERRIDES: Record<string, string> = {
+  GSW: 'gs',
+  NYK: 'ny',
+}
 
 export default async function handler(
   request: VercelRequest,
@@ -56,74 +89,72 @@ export default async function handler(
     return
   }
 
-  const rawName = request.query?.name
-  const name = typeof rawName === 'string' ? rawName : Array.isArray(rawName) ? rawName[0] : ''
+  const name = readQuery(request.query?.name)
+  const sport = readQuery(request.query?.sport).toLowerCase()
+  const code = readQuery(request.query?.code).toUpperCase()
 
-  if (!name) {
-    response.status(400).json({ error: 'Missing `name` query parameter' })
+  if (!name && !code) {
+    response.status(400).json({ error: 'Missing `name` or `code` query parameter' })
     return
   }
 
-  const apiKey = process.env.SPORTSDB_API_KEY ?? '3'
-  const body = await fetchTeamLogo(apiKey, name)
+  const logoUrl = buildLogoUrl(sport, code, name)
+
+  const body: LogoResponse = {
+    source: logoUrl ? 'espn-cdn' : 'none',
+    name: name || code,
+    logoUrl,
+    sport: sport || null,
+  }
 
   response
     .status(200)
-    .setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400')
+    .setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=604800')
     .setHeader('Content-Type', 'application/json')
     .json(body)
 }
 
-async function fetchTeamLogo(apiKey: string, name: string): Promise<LogoResponse> {
-  const fallback: LogoResponse = {
-    source: 'demo',
-    name,
-    logoUrl: null,
-    sport: null,
+function readQuery(value: string | string[] | undefined): string {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (Array.isArray(value)) {
+    return value[0] ?? ''
+  }
+  return ''
+}
+
+function buildLogoUrl(
+  sport: string,
+  code: string,
+  name: string,
+): string | null {
+  const normalizedSport = sport.toLowerCase()
+  const normalizedName = name.toLowerCase()
+
+  if (['nfl', 'nba', 'mlb', 'nhl'].includes(normalizedSport)) {
+    const slug = ABBR_OVERRIDES[code] ?? code.toLowerCase()
+    if (!slug) {
+      return null
+    }
+    return `https://a.espncdn.com/i/teamlogos/${normalizedSport}/500/${slug}.png`
   }
 
-  const controller =
-    typeof AbortController === 'function' ? new AbortController() : null
-  const timeout = controller
-    ? setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS)
-    : null
-
-  try {
-    const url = new URL(
-      `https://www.thesportsdb.com/api/v1/json/${encodeURIComponent(apiKey)}/searchteams.php`,
-    )
-    url.searchParams.set('t', name)
-
-    const response = await fetch(url.toString(), {
-      headers: { Accept: 'application/json' },
-      signal: controller?.signal,
-    })
-
-    if (!response.ok) {
-      return fallback
+  if (normalizedSport === 'soccer') {
+    const id = SOCCER_TEAM_IDS[normalizedName]
+    if (typeof id !== 'number') {
+      return null
     }
-
-    const payload = (await response.json()) as SportsDbSearchResponse
-
-    if (!payload || !Array.isArray(payload.teams) || payload.teams.length === 0) {
-      return fallback
-    }
-
-    const match =
-      payload.teams.find((team) => typeof team.strTeamBadge === 'string' && team.strTeamBadge !== '') ??
-      payload.teams[0]
-
-    return {
-      source: 'sportsdb',
-      name: match.strTeam ?? name,
-      logoUrl: match.strTeamBadge ?? null,
-      sport: match.strSport ?? null,
-    }
-  } catch {
-    return fallback
-  } finally {
-    if (timeout) {
-      clearTimeout(timeout)
-    }
+    return `https://a.espncdn.com/i/teamlogos/soccer/500/${id}.png`
   }
+
+  if (normalizedSport === 'ncaaf' || normalizedSport === 'ncaab') {
+    const id = NCAA_TEAM_IDS[normalizedName]
+    if (typeof id !== 'number') {
+      return null
+    }
+    return `https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`
+  }
+
+  return null
 }

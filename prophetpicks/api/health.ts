@@ -16,6 +16,7 @@ interface HealthResponse {
     apiFootball: boolean
     sportradar: boolean
     sportsdb: 'public' | 'private'
+    teamLogos: 'espn-cdn'
   }
   ts: string
 }
@@ -48,6 +49,7 @@ export default async function handler(
       apiFootball: Boolean(process.env.APIFOOTBALL_KEY),
       sportradar: Boolean(process.env.SPORTRADAR_API_KEY),
       sportsdb: process.env.SPORTSDB_API_KEY ? 'private' : 'public',
+      teamLogos: 'espn-cdn',
     },
     ts: new Date().toISOString(),
   }

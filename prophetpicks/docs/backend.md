@@ -15,7 +15,7 @@ when no provider credentials or database are configured.
 | `/api/live`       | GET       | Demo live game state — minute-deterministic synthetic feed. Used as last-resort fallback. |
 | `/api/live/stream`| GET (SSE) | Server-Sent Events stream of demo live game state, 10s ticks. |
 | `/api/livescore`  | GET       | **Real** in-play scores via TheSportsDB v1 `livescore.php`. Public key `3` works by default; set `SPORTSDB_API_KEY` for a private key. |
-| `/api/team-logo`  | GET       | **Real** team badge URL via TheSportsDB `searchteams.php`. Query `?name=<team>`. Public key `3` works by default. Cached 1h at the edge. |
+| `/api/team-logo`  | GET       | **Real** team badge URL built from ESPN's public CDN. Query `?name=<team>&sport=<key>&code=<code>`. No upstream call — deterministic URL constructor. Cached 1 day at the edge. |
 
 All routes return `{ source, ..., generatedAt }` so the frontend can badge the
 active feed.
