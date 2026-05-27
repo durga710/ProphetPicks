@@ -4825,96 +4825,41 @@ function FdLiveNowRail({
     return () => clearInterval(id)
   }, [])
 
-  // Server reconciliation: prefer SSE (/api/live/stream), fall back to polling
-  // /api/live every 30s when EventSource is unavailable or the stream errors.
-  // Local 8s ticker keeps the rail visibly alive between server pushes.
-  // Skipped in dev/test — the /api routes only exist on the Vercel build.
+  // Poll /api/livescore (ESPN scoreboard aggregator) every 30s. The local
+  // 8s ticker between polls keeps the rail visibly alive. Skipped in dev/test
+  // — the /api routes only exist on the Vercel build.
   useEffect(() => {
     if (!import.meta.env.PROD) {
       return
     }
     let cancelled = false
-    let pollTimer: ReturnType<typeof setInterval> | null = null
-    let source: EventSource | null = null
 
-    function applySnapshot(snapshot: {
-      source: 'demo' | 'sportradar' | 'odds-api' | 'sportsdb' | 'espn'
-      games: LiveGame[]
-    }): void {
-      if (cancelled) {
-        return
-      }
-      if (snapshot.games.length > 0) {
-        setGames(snapshot.games)
-      }
-      setFeedSource(
-        snapshot.source === 'demo'
-          ? 'Server demo state'
-          : snapshot.source === 'sportsdb'
-            ? 'Live feed: TheSportsDB'
-            : snapshot.source === 'espn'
-              ? 'Live feed: ESPN scoreboard'
-              : `Live feed: ${snapshot.source}`,
-      )
-    }
-
-    function startPolling(): void {
-      function poll(): void {
-        loadLiveState().then((snapshot) => {
-          if (snapshot) {
-            applySnapshot(snapshot)
-          }
-        })
-      }
-      poll()
-      pollTimer = setInterval(poll, 30_000)
-    }
-
-    if (typeof EventSource === 'function') {
-      try {
-        source = new EventSource('/api/live/stream')
-
-        // If no snapshot has arrived after 6s the upstream proxy is likely
-        // buffering. Switch to polling so the rail stays current.
-        const connectionTimeout = setTimeout(() => {
-          source?.close()
-          source = null
-          if (!pollTimer) {
-            startPolling()
-          }
-        }, 6000)
-
-        source.addEventListener('snapshot', (event) => {
-          clearTimeout(connectionTimeout)
-          try {
-            const data = JSON.parse((event as MessageEvent).data)
-            applySnapshot(data)
-          } catch {
-            // Ignore malformed payloads.
-          }
-        })
-
-        source.onerror = () => {
-          clearTimeout(connectionTimeout)
-          source?.close()
-          source = null
-          if (!pollTimer) {
-            startPolling()
-          }
+    function poll(): void {
+      loadLiveState().then((snapshot) => {
+        if (cancelled || !snapshot) {
+          return
         }
-      } catch {
-        startPolling()
-      }
-    } else {
-      startPolling()
+        if (snapshot.games.length > 0) {
+          setGames(snapshot.games)
+        }
+        setFeedSource(
+          snapshot.source === 'espn'
+            ? 'Live feed: ESPN scoreboard'
+            : snapshot.source === 'sportsdb'
+              ? 'Live feed: TheSportsDB'
+              : snapshot.source === 'demo'
+                ? 'Server demo state'
+                : `Live feed: ${snapshot.source}`,
+        )
+      })
     }
+
+    poll()
+    const id = setInterval(poll, 30_000)
 
     return () => {
       cancelled = true
-      source?.close()
-      if (pollTimer) {
-        clearInterval(pollTimer)
-      }
+      clearInterval(id)
     }
   }, [])
 

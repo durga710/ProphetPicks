@@ -100,17 +100,12 @@ interface LiveApiResponse {
 }
 
 /**
- * Prefer the real TheSportsDB-backed /api/livescore feed; fall back to the
- * demo /api/live route only if the real endpoint errors out (network blip,
- * upstream 5xx). The frontend renders the source label so the user can
- * always see whether they're looking at real or demo data.
+ * Pull current in-play games from /api/livescore (ESPN scoreboard aggregator).
+ * Returns null when the network call fails; the caller keeps whatever it
+ * had previously rendered.
  */
 export async function loadLiveState(): Promise<LiveApiResponse | null> {
-  const real = await safeFetchJson<LiveApiResponse>('/api/livescore')
-  if (real) {
-    return real
-  }
-  return safeFetchJson<LiveApiResponse>('/api/live')
+  return safeFetchJson<LiveApiResponse>('/api/livescore')
 }
 
 interface SavedSlipApiSummary {
