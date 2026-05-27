@@ -38,6 +38,7 @@ import {
   type SportKey,
 } from '../data/legacyBetfair'
 import {
+  americanToDecimalOdds,
   decimalToAmericanOdds,
   formatAmericanOdds,
   formatProbability,
@@ -66,6 +67,7 @@ import {
 } from '../data/providers/persistence'
 import {
   buildRealSlipItem,
+  realScheduleToLegacyEvent,
   type RealMarketKey,
   type RealSelectionSide,
 } from '../data/realSlipItems'
@@ -84,6 +86,7 @@ type Screen =
   | 'search'
   | 'settings'
   | 'my-slips'
+  | 'live-board'
 
 type OddsFormat = 'decimal' | 'american'
 
@@ -641,6 +644,14 @@ export function LegacyBetfairApp() {
             Odds Board
           </button>
           <button
+            className={screen === 'live-board' ? 'active' : ''}
+            type="button"
+            onClick={() => navigate('live-board')}
+          >
+            <Trophy size={16} aria-hidden="true" />
+            Live Games
+          </button>
+          <button
             className={screen === 'parlay-builder' ? 'active' : ''}
             type="button"
             onClick={() => navigate('parlay-builder')}
@@ -791,6 +802,21 @@ export function LegacyBetfairApp() {
           )}
 
           {screen === 'odds' && <OddsBoardScreen onAddSlipItem={addSlipItem} />}
+
+          {screen === 'live-board' && (
+            <LiveBoardScreen
+              sport={activeSport}
+              oddsFormat={oddsFormat}
+              onAddSlipItem={addSlipItem}
+              onOpenStatPack={(game) =>
+                setRealStatPack({
+                  sport: activeSport,
+                  eventId: game.id,
+                  title: game.longName,
+                })
+              }
+            />
+          )}
 
           {screen === 'parlay-builder' && (
             <QuickParlayBuilder
@@ -2788,6 +2814,68 @@ function OddsBoardTile({
   )
 }
 
+// ----- Real game ML enrichment hook -----
+// ESPN scoreboard inlines spread + total but rarely the moneyline.
+// /api/stat-pack proxies the summary endpoint which DOES include ML.
+// We lazy-fetch per visible game and cache per session.
+
+type EnrichedLine = {
+  homeMoneyLine: number | null
+  awayMoneyLine: number | null
+  provider: string | null
+}
+
+const enrichedOddsCache = new Map<string, EnrichedLine | null>()
+const enrichedOddsInflight = new Map<string, Promise<EnrichedLine | null>>()
+
+function useEnrichedMoneylines(
+  sport: SportKey,
+  eventId: string,
+): EnrichedLine | null {
+  const cacheKey = `${sport}:${eventId}`
+  const cached = enrichedOddsCache.get(cacheKey) ?? null
+  const [resolved, setResolved] = useState<EnrichedLine | null>(cached)
+
+  useEffect(() => {
+    if (!import.meta.env.PROD || !sport || !eventId) {
+      return
+    }
+    if (enrichedOddsCache.has(cacheKey)) {
+      return
+    }
+
+    let cancelled = false
+    const inflight =
+      enrichedOddsInflight.get(cacheKey) ??
+      loadRealStatPack(sport, eventId).then((pack) => {
+        const pc = pack?.pickcenter ?? null
+        const value: EnrichedLine | null = pc
+          ? {
+              homeMoneyLine: pc.homeMoneyLine,
+              awayMoneyLine: pc.awayMoneyLine,
+              provider: pc.provider,
+            }
+          : null
+        enrichedOddsCache.set(cacheKey, value)
+        enrichedOddsInflight.delete(cacheKey)
+        return value
+      })
+    enrichedOddsInflight.set(cacheKey, inflight)
+
+    inflight.then((value) => {
+      if (!cancelled) {
+        setResolved(value)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [cacheKey, eventId, sport])
+
+  return resolved
+}
+
 // ----- Real team logo hook -----
 // Per-session cache: avoids hitting /api/team-logo for the same team twice
 // even when many TeamCrests render across the page.
@@ -2894,19 +2982,26 @@ function FdRealScheduleRail({
     }
     let cancelled = false
 
-    loadSchedule(sport).then((response) => {
-      if (cancelled) {
-        return
-      }
-      setState({
-        sport,
-        games: response?.games ?? [],
-        loaded: true,
+    function refresh(): void {
+      loadSchedule(sport).then((response) => {
+        if (cancelled) {
+          return
+        }
+        setState({
+          sport,
+          games: response?.games ?? [],
+          loaded: true,
+        })
       })
-    })
+    }
+
+    refresh()
+    // Re-pull every 30s so in-play scores + posted lines stay current.
+    const id = setInterval(refresh, 30_000)
 
     return () => {
       cancelled = true
+      clearInterval(id)
     }
   }, [sport])
 
@@ -3006,6 +3101,7 @@ function FdRealScheduleRail({
               </button>
               <FdRealOddsGrid
                 game={game}
+                sport={sport}
                 onAdd={onAddSlipItem}
                 oddsFormat={oddsFormat}
               />
@@ -3019,14 +3115,33 @@ function FdRealScheduleRail({
 
 function FdRealOddsGrid({
   game,
+  sport,
   onAdd,
   oddsFormat,
 }: {
   game: ScheduleGame
+  sport: SportKey
   onAdd: (item: LegacySlipItem) => void
   oddsFormat: OddsFormat
 }) {
-  if (!game.odds) {
+  const enriched = useEnrichedMoneylines(sport, game.id)
+
+  // Merge enriched MLs in when the scoreboard didn't provide them.
+  const merged: ScheduleGame = useMemo(() => {
+    if (!enriched || !game.odds) {
+      return game
+    }
+    return {
+      ...game,
+      odds: {
+        ...game.odds,
+        homeMoneyLine: game.odds.homeMoneyLine ?? enriched.homeMoneyLine,
+        awayMoneyLine: game.odds.awayMoneyLine ?? enriched.awayMoneyLine,
+      },
+    }
+  }, [enriched, game])
+
+  if (!merged.odds) {
     return (
       <div className="fd-real-odds-grid is-empty">
         <span>Lines not posted yet</span>
@@ -3042,16 +3157,16 @@ function FdRealOddsGrid({
         <span>Money</span>
       </div>
       <FdRealOddsRow
-        game={game}
+        game={merged}
         side="away"
-        teamLabel={game.away.code || game.away.name.slice(0, 4).toUpperCase()}
+        teamLabel={merged.away.code || merged.away.name.slice(0, 4).toUpperCase()}
         oddsFormat={oddsFormat}
         onAdd={onAdd}
       />
       <FdRealOddsRow
-        game={game}
+        game={merged}
         side="home"
-        teamLabel={game.home.code || game.home.name.slice(0, 4).toUpperCase()}
+        teamLabel={merged.home.code || merged.home.name.slice(0, 4).toUpperCase()}
         oddsFormat={oddsFormat}
         onAdd={onAdd}
       />
@@ -5528,6 +5643,320 @@ function MySlipsScreen({
       )}
     </section>
   )
+}
+
+// ----- Live Board (real ESPN games as primary surface) -----
+function LiveBoardScreen({
+  sport,
+  oddsFormat,
+  onAddSlipItem,
+  onOpenStatPack,
+}: {
+  sport: SportKey
+  oddsFormat: OddsFormat
+  onAddSlipItem: (item: LegacySlipItem) => void
+  onOpenStatPack: (game: ScheduleGame) => void
+}) {
+  const [state, setState] = useState<{
+    sport: SportKey
+    games: ScheduleGame[]
+    loaded: boolean
+    lastFetchedAt: number
+  }>({ sport, games: [], loaded: false, lastFetchedAt: 0 })
+
+  useEffect(() => {
+    if (!import.meta.env.PROD) {
+      // Dev shows a friendly placeholder; production polls every 30s.
+      return
+    }
+    let cancelled = false
+
+    function refresh(): void {
+      loadSchedule(sport).then((response) => {
+        if (cancelled) {
+          return
+        }
+        setState({
+          sport,
+          games: response?.games ?? [],
+          loaded: true,
+          lastFetchedAt: Date.now(),
+        })
+      })
+    }
+
+    refresh()
+    const id = setInterval(refresh, 30_000)
+
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [sport])
+
+  const stale = state.sport !== sport
+  const loaded = !stale && state.loaded
+  const games = stale ? [] : state.games
+
+  return (
+    <section
+      className="legacy-stage fd-live-board"
+      aria-labelledby="live-board-title"
+    >
+      <div className="legacy-title-row">
+        <div>
+          <p>Live ESPN feed</p>
+          <h1 id="live-board-title">Live Games</h1>
+        </div>
+        <span className="legacy-slip-count">
+          {games.length} {games.length === 1 ? 'game' : 'games'} on the board
+        </span>
+      </div>
+
+      {!import.meta.env.PROD && (
+        <div className="legacy-empty">
+          Real ESPN feed is production-only — deploy or visit
+          prophetpicks.vercel.app to see live games here.
+        </div>
+      )}
+
+      {import.meta.env.PROD && !loaded && (
+        <div className="fd-live-board-grid">
+          {[0, 1, 2].map((index) => (
+            <article
+              className="fd-live-board-card is-skeleton"
+              key={`live-board-skel-${index}`}
+              aria-hidden="true"
+            >
+              <span className="fd-real-schedule-league">—</span>
+              <div className="fd-real-schedule-matchup" />
+              <span className="fd-real-schedule-status">—</span>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {import.meta.env.PROD && loaded && games.length === 0 && (
+        <div className="legacy-empty">
+          ESPN doesn't have games on the board for this sport right now.
+          Switch sports in the left rail to look at a different league.
+        </div>
+      )}
+
+      {import.meta.env.PROD && loaded && games.length > 0 && (
+        <div className="fd-live-board-grid">
+          {games.map((game) => {
+            const isLive = game.state === 'in'
+            const start = new Date(game.startsAt)
+            const dateLabel = Number.isFinite(start.getTime())
+              ? start.toLocaleString([], {
+                  weekday: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : game.statusDetail
+            const stateLabel = isLive
+              ? game.statusDetail || 'In Play'
+              : dateLabel
+
+            return (
+              <article className="fd-live-board-card" key={game.id}>
+                <button
+                  className="fd-live-board-head"
+                  type="button"
+                  aria-label={`Open stat pack for ${game.longName}`}
+                  onClick={() => onOpenStatPack(game)}
+                >
+                  <span className="fd-real-schedule-league">{game.league}</span>
+                  <div className="fd-live-board-matchup">
+                    <FdRealTeamLine team={game.away} />
+                    <FdRealTeamLine team={game.home} />
+                  </div>
+                  <span
+                    className={`fd-real-schedule-status ${isLive ? 'is-live' : ''}`}
+                  >
+                    {isLive && <span className="fd-live-dot" aria-hidden="true" />}
+                    {stateLabel}
+                  </span>
+                </button>
+                <FdRealOddsGrid
+                  game={game}
+                  sport={sport}
+                  onAdd={onAddSlipItem}
+                  oddsFormat={oddsFormat}
+                />
+                <FdRealPropsRow
+                  game={game}
+                  sport={sport}
+                  oddsFormat={oddsFormat}
+                  onAdd={onAddSlipItem}
+                />
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ----- Real props from ESPN leaders -----
+const playerPropsCache = new Map<string, RealStatPack | null>()
+const playerPropsInflight = new Map<string, Promise<RealStatPack | null>>()
+
+function useRealPlayerProps(
+  sport: SportKey,
+  eventId: string,
+): RealStatPack | null {
+  const cacheKey = `${sport}:${eventId}`
+  const cached = playerPropsCache.get(cacheKey) ?? null
+  const [resolved, setResolved] = useState<RealStatPack | null>(cached)
+
+  useEffect(() => {
+    if (!import.meta.env.PROD || !sport || !eventId) {
+      return
+    }
+    if (playerPropsCache.has(cacheKey)) {
+      return
+    }
+
+    let cancelled = false
+    const inflight =
+      playerPropsInflight.get(cacheKey) ??
+      loadRealStatPack(sport, eventId).then((pack) => {
+        playerPropsCache.set(cacheKey, pack)
+        playerPropsInflight.delete(cacheKey)
+        return pack
+      })
+    playerPropsInflight.set(cacheKey, inflight)
+
+    inflight.then((pack) => {
+      if (!cancelled) {
+        setResolved(pack)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [cacheKey, eventId, sport])
+
+  return resolved
+}
+
+function FdRealPropsRow({
+  game,
+  sport,
+  oddsFormat,
+  onAdd,
+}: {
+  game: ScheduleGame
+  sport: SportKey
+  oddsFormat: OddsFormat
+  onAdd: (item: LegacySlipItem) => void
+}) {
+  const pack = useRealPlayerProps(sport, game.id)
+
+  if (!pack || pack.leaders.length === 0) {
+    return null
+  }
+
+  // Build synthetic Over <line> props from each league-leader line.
+  // Lines like "ESPN ABBR Passing Yards: Patrick Mahomes (3,210)"
+  // → "Mahomes O 200.5 Passing Yards" at -110.
+  const propTiles = pack.leaders
+    .slice(0, 4)
+    .map((rawLine) => buildSyntheticProp(rawLine, game))
+    .filter((tile): tile is SyntheticPropTile => tile !== null)
+
+  if (propTiles.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="fd-live-board-props">
+      <header>
+        <span>Player props</span>
+        <small>Lines synthesized from ESPN leader averages</small>
+      </header>
+      <div className="fd-live-board-props-grid">
+        {propTiles.map((tile) => {
+          const display = formatPrice(tile.decimalOdds, oddsFormat)
+          return (
+            <button
+              className="fd-live-board-prop"
+              type="button"
+              key={tile.key}
+              aria-label={`Add ${tile.label} at ${display} to slip`}
+              onClick={() => onAdd(tile.item)}
+            >
+              <span>{tile.category}</span>
+              <strong>{tile.label}</strong>
+              <b>{display}</b>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+type SyntheticPropTile = {
+  key: string
+  category: string
+  label: string
+  decimalOdds: number
+  item: LegacySlipItem
+}
+
+function buildSyntheticProp(rawLine: string, game: ScheduleGame): SyntheticPropTile | null {
+  // Expected shape from /api/stat-pack normalize:
+  //   "SEA Passing Yards: Geno Smith (3,210)"
+  const match = rawLine.match(/^(\w+)\s+(.+?):\s+(.+?)\s+\(([\d.,]+)\)$/)
+  if (!match) {
+    return null
+  }
+  const [, teamAbbr, category, athlete, valueRaw] = match
+
+  // Parse the leader's full-season value, then craft a per-game over-under
+  // line as ~60% of a "per-game" approximation. Demo heuristic; the prop
+  // itself is real (real player, real stat category), the line is our take.
+  const value = Number.parseFloat(valueRaw.replace(/,/g, ''))
+  if (!Number.isFinite(value) || value <= 0) {
+    return null
+  }
+  const perGameApprox = value / 17 // NFL-ish; close enough across sports
+  const line = Math.max(0.5, Math.round(perGameApprox * 0.6 * 2) / 2)
+
+  const event = realScheduleToLegacyEvent(game)
+  const americanOdds = -110
+  const decimalOdds = americanToDecimalOdds(americanOdds)
+  const label = `${athlete.split(' ').slice(-1)[0]} O ${line} ${category}`
+
+  const market: LegacyMarket = {
+    id: `real-${game.id}-prop-${teamAbbr}-${category.replace(/\s+/g, '-')}`,
+    label: `${category} (prop)`,
+    selections: [
+      {
+        id: `${teamAbbr}-${category}-over-${line}`,
+        label,
+        odds: decimalOdds,
+        side: 'Back',
+      },
+    ],
+  }
+
+  return {
+    key: `${game.id}-${teamAbbr}-${category}`,
+    category,
+    label,
+    decimalOdds,
+    item: {
+      event,
+      market,
+      selection: market.selections[0],
+    },
+  }
 }
 
 // ----- Bottom mobile tab bar -----

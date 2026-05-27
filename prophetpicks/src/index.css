@@ -3795,6 +3795,155 @@ img {
   letter-spacing: 0.3px;
 }
 
+/* ===== LIVE BOARD (real ESPN games as primary surface) ===== */
+.fd-live-board {
+  display: grid;
+  gap: 14px;
+}
+
+.fd-live-board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+
+.fd-live-board-card {
+  display: grid;
+  gap: 0;
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-surface-line);
+  border-radius: var(--fd-radius-md);
+  overflow: hidden;
+  box-shadow: var(--fd-shadow-sm);
+  animation: fd-fade-in-up 380ms ease both;
+}
+
+.fd-live-board-card.is-skeleton {
+  min-height: 220px;
+  position: relative;
+}
+
+.fd-live-board-card.is-skeleton::before {
+  position: absolute;
+  inset: 8px;
+  content: '';
+  background: linear-gradient(
+    90deg,
+    var(--fd-surface-alt) 0%,
+    var(--fd-surface-line) 50%,
+    var(--fd-surface-alt) 100%
+  );
+  background-size: 200% 100%;
+  animation: fd-shimmer 1.4s linear infinite;
+  border-radius: var(--fd-radius-sm);
+}
+
+.fd-live-board-card.is-skeleton > * {
+  visibility: hidden;
+}
+
+.fd-live-board-head {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--fd-surface-line);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+}
+
+.fd-live-board-head:hover {
+  background: var(--fd-surface-alt);
+}
+
+.fd-live-board-matchup {
+  display: grid;
+  gap: 4px;
+}
+
+/* ===== Real player props (synthesized from ESPN leaders) ===== */
+.fd-live-board-props {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--fd-surface-alt);
+  border-top: 1px solid var(--fd-surface-line);
+}
+
+.fd-live-board-props header {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.fd-live-board-props header span {
+  color: var(--fd-text);
+  font-size: 11px;
+  font-weight: 880;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.fd-live-board-props header small {
+  color: var(--fd-text-muted);
+  font-size: 10px;
+  font-weight: 720;
+  font-style: italic;
+}
+
+.fd-live-board-props-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.fd-live-board-prop {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  color: var(--fd-text);
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-surface-line);
+  border-radius: var(--fd-radius-sm);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 100ms ease, border-color 100ms ease, background 100ms ease;
+}
+
+.fd-live-board-prop:hover {
+  transform: translateY(-1px);
+  border-color: var(--fd-blue);
+  background: var(--fd-blue-soft);
+}
+
+.fd-live-board-prop span {
+  color: var(--fd-text-muted);
+  font-size: 9px;
+  font-weight: 820;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.fd-live-board-prop strong {
+  color: var(--fd-text);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.25;
+}
+
+.fd-live-board-prop b {
+  color: var(--fd-blue-hover);
+  font-size: 13px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ===== NEWS RAIL (ESPN) ===== */
 .fd-news-rail {
   display: grid;
