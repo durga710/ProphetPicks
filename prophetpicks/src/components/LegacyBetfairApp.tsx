@@ -52,6 +52,7 @@ import { loadOddsQuotes } from '../data/providers/oddsApi'
 import {
   loadBets,
   loadLiveState,
+  loadSavedSlips,
   saveBet,
   saveSlip,
 } from '../data/providers/persistence'
@@ -66,6 +67,8 @@ type Screen =
   | 'today'
   | 'predictions'
   | 'odds'
+  | 'parlay-builder'
+  | 'search'
 type FinanceTab = 'deposits' | 'withdrawals' | 'ledger'
 type BetTypeFilter = 'all' | 'simple' | 'combined'
 type SlipMode = 'simple' | 'combined'
@@ -196,6 +199,8 @@ export function LegacyBetfairApp() {
   const [legalTopic, setLegalTopic] = useState<LegalTopic | null>(null)
   const [statPackEvent, setStatPackEvent] = useState<LegacyEvent | null>(null)
   const [savedSlips, setSavedSlips] = useState<SavedSlipSummary[]>([])
+  const [headerSearch, setHeaderSearch] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const activeEvents = useMemo(() => getEventsForSport(activeSport), [activeSport])
   const activeSportDefinition = getSport(activeSport)
@@ -223,6 +228,30 @@ export function LegacyBetfairApp() {
           }
         }
         return merged
+      })
+    })
+
+    loadSavedSlips().then((result) => {
+      if (cancelled || !result || result.source !== 'neon' || result.slips.length === 0) {
+        return
+      }
+
+      setSavedSlips((current) => {
+        const existing = new Set(current.map((slip) => slip.slipId))
+        const merged = [...current]
+        for (const slip of result.slips) {
+          if (!existing.has(slip.slipId)) {
+            merged.push({
+              slipId: slip.slipId,
+              savedAt: slip.savedAt,
+              legCount: slip.legCount,
+              mode: slip.mode,
+              topSelection: slip.topSelection,
+              combinedPrice: slip.combinedPrice,
+            })
+          }
+        }
+        return merged.slice(0, 12)
       })
     })
 
@@ -452,6 +481,28 @@ export function LegacyBetfairApp() {
               <strong>PICKS</strong>
             </div>
           </div>
+          <form
+            className="fd-header-search"
+            role="search"
+            aria-label="Search the hub"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const query = headerSearch.trim()
+              if (!query) {
+                return
+              }
+              setSearchQuery(query)
+              navigate('search')
+            }}
+          >
+            <Search size={15} aria-hidden="true" />
+            <input
+              aria-label="Hub search"
+              placeholder="Search the hub"
+              value={headerSearch}
+              onChange={(event) => setHeaderSearch(event.target.value)}
+            />
+          </form>
           <div className="legacy-account">
             <span>Hello, Jhon Alexander</span>
             <strong>Credits: $20000</strong>
@@ -511,6 +562,14 @@ export function LegacyBetfairApp() {
             Odds Board
           </button>
           <button
+            className={screen === 'parlay-builder' ? 'active' : ''}
+            type="button"
+            onClick={() => navigate('parlay-builder')}
+          >
+            <TicketCheck size={16} aria-hidden="true" />
+            Parlay Builder
+          </button>
+          <button
             className={screen === 'today' ? 'active' : ''}
             type="button"
             onClick={() => navigate('today')}
@@ -541,7 +600,11 @@ export function LegacyBetfairApp() {
         <main className="legacy-main">
           {(screen === 'events' || screen === 'today' || screen === 'odds') && (
             <>
-              <FdSportHub sport={activeSport} eventCount={activeEvents.length} />
+              <FdSportHub
+                sport={activeSport}
+                eventCount={activeEvents.length}
+                events={activeEvents}
+              />
               <FdFeaturedHero onAddSlipItem={addSlipItem} />
               <FdPromoStrip />
               <FdBoostedOddsRail onAddSlipItem={addSlipItem} />
@@ -611,6 +674,31 @@ export function LegacyBetfairApp() {
           )}
 
           {screen === 'odds' && <OddsBoardScreen onAddSlipItem={addSlipItem} />}
+
+          {screen === 'parlay-builder' && (
+            <QuickParlayBuilder
+              events={legacyEvents}
+              onLoadParlay={(parlayItems) => {
+                setSlipItems(parlayItems)
+                setSlipMode('combined')
+                setIsConfirmed(false)
+                setIsSlipOpen(true)
+                setStatus(
+                  `Built a ${parlayItems.length}-leg parlay. Confirm to mock-place it.`,
+                )
+              }}
+            />
+          )}
+
+          {screen === 'search' && (
+            <SearchResultsScreen
+              query={searchQuery}
+              onChangeQuery={(next) => setSearchQuery(next)}
+              events={legacyEvents}
+              onOpenCatalog={openCatalog}
+              onOpenStatPack={setStatPackEvent}
+            />
+          )}
 
           {screen === 'bets' && (
             <BetsScreen
@@ -2858,21 +2946,42 @@ const SPORT_HUB: Record<SportKey, SportHubMeta> = {
   },
 }
 
-function FdSportHub({ sport, eventCount }: { sport: SportKey; eventCount: number }) {
+function FdSportHub({
+  sport,
+  eventCount,
+  events,
+}: {
+  sport: SportKey
+  eventCount: number
+  events: LegacyEvent[]
+}) {
   const meta = SPORT_HUB[sport]
   if (!meta) {
     return null
   }
 
+  const featured = events[0]
+
   return (
     <section className="fd-sport-hub" aria-label={`${meta.tagline} hub`}>
-      <div>
+      <div className="fd-sport-hub-body">
         <span>{meta.tagline}</span>
         <strong>{meta.storyline}</strong>
+        <small>
+          {eventCount} {eventCount === 1 ? 'game' : 'games'} on the board
+        </small>
       </div>
-      <span className="fd-sport-hub-count">
-        {eventCount} {eventCount === 1 ? 'game' : 'games'} on the board
-      </span>
+      {featured && (
+        <aside className="fd-sport-hub-featured" aria-label="Featured matchup">
+          <span>Featured matchup</span>
+          <strong>
+            {`${featured.homeCode} vs ${featured.awayCode}`}
+          </strong>
+          <small>
+            {featured.time} · {featured.venue}
+          </small>
+        </aside>
+      )}
     </section>
   )
 }
@@ -3131,32 +3240,72 @@ function FdLiveNowRail({
     return () => clearInterval(id)
   }, [])
 
-  // Server reconciliation (30s) overrides local state with /api/live whenever
-  // the server returns. Soft-fails offline; local ticker keeps the rail alive.
+  // Server reconciliation: prefer SSE (/api/live/stream), fall back to polling
+  // /api/live every 30s when EventSource is unavailable or the stream errors.
+  // Local 8s ticker keeps the rail visibly alive between server pushes.
   useEffect(() => {
     let cancelled = false
+    let pollTimer: ReturnType<typeof setInterval> | null = null
+    let source: EventSource | null = null
 
-    function poll(): void {
-      loadLiveState().then((snapshot) => {
-        if (cancelled || !snapshot) {
-          return
-        }
-
-        setGames(snapshot.games)
-        setFeedSource(
-          snapshot.source === 'demo'
-            ? 'Server demo state'
-            : `Live feed: ${snapshot.source}`,
-        )
-      })
+    function applySnapshot(snapshot: {
+      source: 'demo' | 'sportradar' | 'odds-api'
+      games: LiveGame[]
+    }): void {
+      if (cancelled) {
+        return
+      }
+      setGames(snapshot.games)
+      setFeedSource(
+        snapshot.source === 'demo'
+          ? 'Server demo state'
+          : `Live feed: ${snapshot.source}`,
+      )
     }
 
-    poll()
-    const id = setInterval(poll, 30_000)
+    function startPolling(): void {
+      function poll(): void {
+        loadLiveState().then((snapshot) => {
+          if (snapshot) {
+            applySnapshot(snapshot)
+          }
+        })
+      }
+      poll()
+      pollTimer = setInterval(poll, 30_000)
+    }
+
+    if (typeof EventSource === 'function') {
+      try {
+        source = new EventSource('/api/live/stream')
+        source.addEventListener('snapshot', (event) => {
+          try {
+            const data = JSON.parse((event as MessageEvent).data)
+            applySnapshot(data)
+          } catch {
+            // Ignore malformed payloads.
+          }
+        })
+        source.onerror = () => {
+          source?.close()
+          source = null
+          if (!pollTimer) {
+            startPolling()
+          }
+        }
+      } catch {
+        startPolling()
+      }
+    } else {
+      startPolling()
+    }
 
     return () => {
       cancelled = true
-      clearInterval(id)
+      source?.close()
+      if (pollTimer) {
+        clearInterval(pollTimer)
+      }
     }
   }, [])
 
@@ -3375,6 +3524,324 @@ function groupItemsByEvent(items: LegacySlipItem[]): SlipGroup[] {
   }
 
   return Array.from(groups.values())
+}
+
+// ----- Quick Parlay Builder -----
+const PARLAY_MARKET_CHOICES = [
+  { id: 'moneyline', label: 'Moneyline / Match Result' },
+  { id: 'spread', label: 'Spread / Handicap' },
+  { id: 'total', label: 'Total' },
+] as const
+
+type ParlayMarketChoice = (typeof PARLAY_MARKET_CHOICES)[number]['id']
+
+const MAX_PARLAY_LEGS = 4
+
+function resolveParlayLeg(
+  event: LegacyEvent,
+  choice: ParlayMarketChoice,
+): LegacySlipItem | null {
+  const primary = pickPrimaryMarkets(event)
+  const market =
+    choice === 'moneyline'
+      ? primary.moneyline
+      : choice === 'spread'
+        ? primary.spread
+        : primary.total
+
+  if (!market || market.selections.length === 0) {
+    return null
+  }
+
+  return { event, market, selection: market.selections[0] }
+}
+
+function QuickParlayBuilder({
+  events,
+  onLoadParlay,
+}: {
+  events: LegacyEvent[]
+  onLoadParlay: (items: LegacySlipItem[]) => void
+}) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [marketChoices, setMarketChoices] = useState<
+    Record<string, ParlayMarketChoice>
+  >({})
+
+  function toggleEvent(id: string): void {
+    setSelectedIds((current) => {
+      if (current.includes(id)) {
+        return current.filter((existing) => existing !== id)
+      }
+
+      if (current.length >= MAX_PARLAY_LEGS) {
+        return current
+      }
+
+      return [...current, id]
+    })
+  }
+
+  function setMarketFor(id: string, choice: ParlayMarketChoice): void {
+    setMarketChoices((current) => ({ ...current, [id]: choice }))
+  }
+
+  const legs = selectedIds
+    .map((eventId) => {
+      const event = events.find((candidate) => candidate.id === eventId)
+      if (!event) {
+        return null
+      }
+      const choice = marketChoices[eventId] ?? 'moneyline'
+      return resolveParlayLeg(event, choice)
+    })
+    .filter((leg): leg is LegacySlipItem => leg !== null)
+
+  const combined = legs.reduce(
+    (product, leg) => product * leg.selection.odds,
+    1,
+  )
+  const american =
+    legs.length === 0 ? '—' : formatAmericanOdds(decimalToAmericanOdds(combined))
+
+  return (
+    <section className="legacy-stage fd-parlay-builder" aria-labelledby="parlay-title">
+      <div className="legacy-table-header">
+        <div>
+          <p>Build it yourself</p>
+          <h1 id="parlay-title">Parlay Builder</h1>
+        </div>
+        <button
+          className="legacy-action-button"
+          type="button"
+          disabled={legs.length < 2}
+          onClick={() => onLoadParlay(legs)}
+        >
+          Load {legs.length}-leg parlay
+        </button>
+      </div>
+
+      <div className="fd-parlay-builder-grid">
+        <article>
+          <h3>
+            1. Pick up to {MAX_PARLAY_LEGS} games ({selectedIds.length}/
+            {MAX_PARLAY_LEGS})
+          </h3>
+          <ul>
+            {events.map((event) => {
+              const isSelected = selectedIds.includes(event.id)
+              const disabled =
+                !isSelected && selectedIds.length >= MAX_PARLAY_LEGS
+
+              return (
+                <li key={event.id}>
+                  <label className={isSelected ? 'is-selected' : ''}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      disabled={disabled}
+                      onChange={() => toggleEvent(event.id)}
+                    />
+                    <span>
+                      <strong>
+                        {event.homeCode} vs {event.awayCode}
+                      </strong>
+                      <small>
+                        {event.sportLabel} · {event.dateLabel} · {event.time}
+                      </small>
+                    </span>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+        </article>
+
+        <article>
+          <h3>2. Pick a market per game</h3>
+          {selectedIds.length === 0 && (
+            <p className="fd-parlay-builder-empty">
+              Select a couple of games on the left to start picking markets.
+            </p>
+          )}
+          <ul className="fd-parlay-builder-markets">
+            {selectedIds.map((eventId) => {
+              const event = events.find((candidate) => candidate.id === eventId)
+              if (!event) {
+                return null
+              }
+              const choice = marketChoices[eventId] ?? 'moneyline'
+              const leg = resolveParlayLeg(event, choice)
+              const legPrice = leg
+                ? formatAmericanOdds(decimalToAmericanOdds(leg.selection.odds))
+                : 'n/a'
+              const legLabel = leg ? leg.selection.label : 'No market available'
+
+              return (
+                <li key={eventId}>
+                  <header>
+                    <strong>
+                      {event.homeCode} vs {event.awayCode}
+                    </strong>
+                    <b>{legPrice}</b>
+                  </header>
+                  <span>{legLabel}</span>
+                  <div className="fd-parlay-market-choice">
+                    {PARLAY_MARKET_CHOICES.map((option) => (
+                      <button
+                        key={option.id}
+                        className={choice === option.id ? 'active' : ''}
+                        type="button"
+                        onClick={() => setMarketFor(eventId, option.id)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </article>
+
+        <article className="fd-parlay-summary">
+          <h3>3. Review the ticket</h3>
+          <dl>
+            <div>
+              <dt>Legs</dt>
+              <dd>{legs.length}</dd>
+            </div>
+            <div>
+              <dt>Combined decimal</dt>
+              <dd>{formatDecimal(combined)}</dd>
+            </div>
+            <div>
+              <dt>Combined American</dt>
+              <dd>{american}</dd>
+            </div>
+            <div>
+              <dt>$10 returns</dt>
+              <dd>${legs.length === 0 ? '0.00' : (combined * 10).toFixed(2)}</dd>
+            </div>
+          </dl>
+          <button
+            type="button"
+            disabled={legs.length < 2}
+            onClick={() => onLoadParlay(legs)}
+          >
+            Add {legs.length}-leg parlay to slip
+          </button>
+        </article>
+      </div>
+    </section>
+  )
+}
+
+// ----- Search results -----
+function SearchResultsScreen({
+  query,
+  onChangeQuery,
+  events,
+  onOpenCatalog,
+  onOpenStatPack,
+}: {
+  query: string
+  onChangeQuery: (value: string) => void
+  events: LegacyEvent[]
+  onOpenCatalog: (event: LegacyEvent) => void
+  onOpenStatPack: (event: LegacyEvent) => void
+}) {
+  const matches = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    if (!normalized) {
+      return [] as LegacyEvent[]
+    }
+
+    return events.filter((event) => {
+      const haystack = [
+        event.home,
+        event.away,
+        event.homeCode,
+        event.awayCode,
+        event.league,
+        event.sportLabel,
+        event.venue,
+        event.dateLabel,
+        event.group,
+      ]
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(normalized)
+    })
+  }, [events, query])
+
+  return (
+    <section className="legacy-stage fd-search-stage" aria-labelledby="search-title">
+      <div className="legacy-table-header">
+        <div>
+          <p>Search results</p>
+          <h1 id="search-title">
+            {query.trim() ? `Results for "${query.trim()}"` : 'Search the hub'}
+          </h1>
+        </div>
+        <div className="legacy-search compact">
+          <Search size={15} aria-hidden="true" />
+          <input
+            aria-label="Refine search"
+            placeholder="Refine"
+            value={query}
+            onChange={(event) => onChangeQuery(event.target.value)}
+          />
+        </div>
+      </div>
+      {query.trim() === '' && (
+        <div className="legacy-empty">
+          Type a team, league, or matchup in the header search to begin.
+        </div>
+      )}
+      {query.trim() !== '' && matches.length === 0 && (
+        <div className="legacy-empty">
+          No games match "{query.trim()}" today. Try a team code (KC, ARS) or
+          competition name (UCL, NBA).
+        </div>
+      )}
+      {matches.length > 0 && (
+        <ul className="fd-search-results">
+          {matches.map((event) => (
+            <li key={event.id}>
+              <div>
+                <strong>
+                  {event.home} vs {event.away}
+                </strong>
+                <span>
+                  {event.sportLabel} · {event.league} · {event.dateLabel} ·{' '}
+                  {event.time} · {event.venue}
+                </span>
+              </div>
+              <div className="fd-search-actions">
+                <button
+                  type="button"
+                  className="legacy-action-button"
+                  aria-label={`Open ${event.home} VS ${event.away} market`}
+                  onClick={() => onOpenCatalog(event)}
+                >
+                  Open markets
+                </button>
+                <button
+                  type="button"
+                  className="fd-row-stats"
+                  aria-label={`Stat pack ${event.homeCode} vs ${event.awayCode}`}
+                  onClick={() => onOpenStatPack(event)}
+                >
+                  Stats
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
 }
 
 // ----- Bottom mobile tab bar -----

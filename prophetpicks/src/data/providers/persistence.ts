@@ -103,6 +103,26 @@ export async function loadLiveState(): Promise<LiveApiResponse | null> {
   return safeFetchJson<LiveApiResponse>('/api/live')
 }
 
+interface SavedSlipApiSummary {
+  slipId: string
+  mode: 'simple' | 'combined'
+  stake: number
+  savedAt: string
+  legCount: number
+  topSelection: string
+  combinedPrice: number
+}
+
+interface SlipsListApiResponse {
+  source: PersistenceSource
+  slips: SavedSlipApiSummary[]
+  generatedAt: string
+}
+
+export async function loadSavedSlips(): Promise<SlipsListApiResponse | null> {
+  return safeFetchJson<SlipsListApiResponse>(SLIPS_ENDPOINT)
+}
+
 async function safeFetchJson<T>(
   url: string,
   init: RequestInit = {},
