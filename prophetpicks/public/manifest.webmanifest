@@ -1,0 +1,33 @@
+{
+  "name": "ProphetPicks",
+  "short_name": "ProphetPicks",
+  "description": "Personal sportsbook simulator. Build slips, track tickets, and study lines across every sport.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f1419",
+  "theme_color": "#1b2630",
+  "lang": "en",
+  "categories": ["sports", "lifestyle"],
+  "icons": [
+    {
+      "src": "/prophet-mask.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "/prophet-mask.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

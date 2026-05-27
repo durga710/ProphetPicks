@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
+  Bell,
   CalendarDays,
   ChevronDown,
   CircleDollarSign,
@@ -69,6 +70,34 @@ type Screen =
   | 'odds'
   | 'parlay-builder'
   | 'search'
+  | 'settings'
+  | 'my-slips'
+
+type OddsFormat = 'decimal' | 'american'
+
+const ODDS_FORMAT_STORAGE_KEY = 'pp-odds-format'
+
+function readStoredOddsFormat(): OddsFormat {
+  if (typeof window === 'undefined') {
+    return 'decimal'
+  }
+  const value = window.localStorage.getItem(ODDS_FORMAT_STORAGE_KEY)
+  return value === 'american' ? 'american' : 'decimal'
+}
+
+function persistOddsFormat(value: OddsFormat): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+  window.localStorage.setItem(ODDS_FORMAT_STORAGE_KEY, value)
+}
+
+function formatPrice(decimalOdds: number, format: OddsFormat): string {
+  if (format === 'american') {
+    return formatAmericanOdds(decimalToAmericanOdds(decimalOdds))
+  }
+  return formatDecimal(decimalOdds)
+}
 type FinanceTab = 'deposits' | 'withdrawals' | 'ledger'
 type BetTypeFilter = 'all' | 'simple' | 'combined'
 type SlipMode = 'simple' | 'combined'
@@ -201,6 +230,16 @@ export function LegacyBetfairApp() {
   const [savedSlips, setSavedSlips] = useState<SavedSlipSummary[]>([])
   const [headerSearch, setHeaderSearch] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [oddsFormat, setOddsFormat] = useState<OddsFormat>(readStoredOddsFormat)
+  const [notifications, setNotifications] = useState<FdNotification[]>(
+    DEFAULT_NOTIFICATIONS,
+  )
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+
+  function changeOddsFormat(next: OddsFormat): void {
+    setOddsFormat(next)
+    persistOddsFormat(next)
+  }
 
   const activeEvents = useMemo(() => getEventsForSport(activeSport), [activeSport])
   const activeSportDefinition = getSport(activeSport)
@@ -400,6 +439,11 @@ export function LegacyBetfairApp() {
     void saveBet(newBet)
     const topSelection = primaryItem.selection.label
     const summaryPrice = combinedPrice(slipItems)
+    const itemsSnapshot = slipItems.map((item) => ({
+      event: item.event,
+      market: item.market,
+      selection: item.selection,
+    }))
     saveSlip(slipItems, slipMode, stake).then((response) => {
       if (!response) {
         return
@@ -414,9 +458,10 @@ export function LegacyBetfairApp() {
             mode: slipMode,
             topSelection,
             combinedPrice: summaryPrice,
+            items: itemsSnapshot,
           },
           ...current,
-        ].slice(0, 8),
+        ].slice(0, 12),
       )
     })
     setMockLedgerRows((rows) => [
@@ -506,6 +551,23 @@ export function LegacyBetfairApp() {
           <div className="legacy-account">
             <span>Hello, Jhon Alexander</span>
             <strong>Credits: $20000</strong>
+            <button
+              className="fd-bell"
+              type="button"
+              aria-label="Open notifications"
+              aria-expanded={isNotificationsOpen}
+              onClick={() => setIsNotificationsOpen((open) => !open)}
+            >
+              <Bell size={18} aria-hidden="true" />
+              {notifications.some((notification) => !notification.read) && (
+                <span
+                  className="fd-bell-badge"
+                  aria-label={`${notifications.filter((notification) => !notification.read).length} unread`}
+                >
+                  {notifications.filter((notification) => !notification.read).length}
+                </span>
+              )}
+            </button>
             <button type="button" onClick={() => setIsSlipOpen(true)}>
               Betting Slip
             </button>
@@ -568,6 +630,22 @@ export function LegacyBetfairApp() {
           >
             <TicketCheck size={16} aria-hidden="true" />
             Parlay Builder
+          </button>
+          <button
+            className={screen === 'my-slips' ? 'active' : ''}
+            type="button"
+            onClick={() => navigate('my-slips')}
+          >
+            <ClipboardList size={16} aria-hidden="true" />
+            My Slips
+          </button>
+          <button
+            className={screen === 'settings' ? 'active' : ''}
+            type="button"
+            onClick={() => navigate('settings')}
+          >
+            <ShieldCheck size={16} aria-hidden="true" />
+            Settings
           </button>
           <button
             className={screen === 'today' ? 'active' : ''}
@@ -650,6 +728,7 @@ export function LegacyBetfairApp() {
               onOpenCatalog={openCatalog}
               onAddSlipItem={addSlipItem}
               onOpenStatPack={setStatPackEvent}
+              oddsFormat={oddsFormat}
             />
           )}
 
@@ -660,6 +739,7 @@ export function LegacyBetfairApp() {
               onOpenMarket={openMarket}
               onRefreshMarket={refreshMarket}
               onAddSelection={addSelection}
+              oddsFormat={oddsFormat}
             />
           )}
 
@@ -697,6 +777,32 @@ export function LegacyBetfairApp() {
               events={legacyEvents}
               onOpenCatalog={openCatalog}
               onOpenStatPack={setStatPackEvent}
+            />
+          )}
+
+          {screen === 'settings' && (
+            <SettingsScreen
+              oddsFormat={oddsFormat}
+              onChangeOddsFormat={changeOddsFormat}
+            />
+          )}
+
+          {screen === 'my-slips' && (
+            <MySlipsScreen
+              savedSlips={savedSlips}
+              onReload={(slip) => {
+                if (!slip.items || slip.items.length === 0) {
+                  setStatus(
+                    'This slip is a server snapshot only — reload not available.',
+                  )
+                  return
+                }
+                setSlipItems(slip.items)
+                setSlipMode(slip.mode)
+                setIsConfirmed(false)
+                setIsSlipOpen(true)
+                setStatus(`Reloaded ${slip.legCount}-leg slip into the editor.`)
+              }}
             />
           )}
 
@@ -780,6 +886,27 @@ export function LegacyBetfairApp() {
         <FdStatPackDrawer
           event={statPackEvent}
           onClose={() => setStatPackEvent(null)}
+        />
+      )}
+
+      {isNotificationsOpen && (
+        <FdNotificationsPanel
+          notifications={notifications}
+          onClose={() => setIsNotificationsOpen(false)}
+          onMarkRead={(id) =>
+            setNotifications((current) =>
+              current.map((notification) =>
+                notification.id === id
+                  ? { ...notification, read: true }
+                  : notification,
+              ),
+            )
+          }
+          onMarkAllRead={() =>
+            setNotifications((current) =>
+              current.map((notification) => ({ ...notification, read: true })),
+            )
+          }
         />
       )}
 
@@ -872,13 +999,15 @@ function FdOddsButton({
   market,
   selection,
   onAdd,
+  oddsFormat,
 }: {
   event: LegacyEvent
   market: LegacyMarket
   selection: LegacyMarket['selections'][number]
   onAdd: (item: LegacySlipItem) => void
+  oddsFormat: OddsFormat
 }) {
-  const american = formatAmericanOdds(decimalToAmericanOdds(selection.odds))
+  const display = formatPrice(selection.odds, oddsFormat)
 
   return (
     <button
@@ -888,7 +1017,7 @@ function FdOddsButton({
       onClick={() => onAdd({ event, market, selection })}
     >
       <span className="fd-line">{shortenSelectionLabel(selection)}</span>
-      <span className="fd-price">{american}</span>
+      <span className="fd-price">{display}</span>
     </button>
   )
 }
@@ -898,11 +1027,13 @@ function FdMarketColumn({
   event,
   market,
   onAdd,
+  oddsFormat,
 }: {
   label: string
   event: LegacyEvent
   market: LegacyMarket | null
   onAdd: (item: LegacySlipItem) => void
+  oddsFormat: OddsFormat
 }) {
   return (
     <div className="fd-row-market">
@@ -920,6 +1051,7 @@ function FdMarketColumn({
                 market={market}
                 selection={selection}
                 onAdd={onAdd}
+                oddsFormat={oddsFormat}
               />
             ))}
     </div>
@@ -936,6 +1068,7 @@ function EventsScreen({
   onOpenCatalog,
   onAddSlipItem,
   onOpenStatPack,
+  oddsFormat,
 }: {
   sport: ReturnType<typeof getSport>
   groupedEvents: Record<string, LegacyEvent[]>
@@ -946,6 +1079,7 @@ function EventsScreen({
   onOpenCatalog: (event: LegacyEvent) => void
   onAddSlipItem: (item: LegacySlipItem) => void
   onOpenStatPack: (event: LegacyEvent) => void
+  oddsFormat: OddsFormat
 }) {
   const [isLeagueOpen, setIsLeagueOpen] = useState(true)
   const [activeGroup, setActiveGroup] = useState<string | null>(null)
@@ -1115,18 +1249,21 @@ function EventsScreen({
                         event={event}
                         market={primary.spread}
                         onAdd={onAddSlipItem}
+                        oddsFormat={oddsFormat}
                       />
                       <FdMarketColumn
                         label="Total"
                         event={event}
                         market={primary.total}
                         onAdd={onAddSlipItem}
+                        oddsFormat={oddsFormat}
                       />
                       <FdMarketColumn
                         label="Moneyline"
                         event={event}
                         market={primary.moneyline}
                         onAdd={onAddSlipItem}
+                        oddsFormat={oddsFormat}
                       />
                     </div>
                     {note && <FdEditorNote note={note} />}
@@ -1176,12 +1313,14 @@ function MarketScreen({
   onOpenMarket,
   onRefreshMarket,
   onAddSelection,
+  oddsFormat,
 }: {
   event: LegacyEvent
   market: LegacyMarket
   onOpenMarket: (event: LegacyEvent, market: LegacyMarket) => void
   onRefreshMarket: (event: LegacyEvent) => void
   onAddSelection: (selection: LegacyMarket['selections'][number]) => void
+  oddsFormat: OddsFormat
 }) {
   const markets = getMarketsForEvent(event)
 
@@ -1253,7 +1392,7 @@ function MarketScreen({
                 >
                   <span>{selection.side}</span>
                   <SelectionLabel event={event} label={selection.label} />
-                  <b>{formatDecimal(selection.odds)}</b>
+                  <b>{formatPrice(selection.odds, oddsFormat)}</b>
                   <span className="legacy-odd-tile-meta">
                     <em>{american}</em>
                     <em>{implied}</em>
@@ -1535,6 +1674,107 @@ function TeamsScreen({ teams }: { teams: LegacyTeam[] }) {
   )
 }
 
+type LiveGameSnapshot = {
+  id: string
+  eventId: string
+  league: string
+  status: string
+  homeCode: string
+  awayCode: string
+  homeScore: number
+  awayScore: number
+}
+
+type BetInsights = {
+  totalWagered: number
+  settledCount: number
+  pendingCount: number
+  winCount: number
+  winRatePercent: number
+  biggestWin: number
+  biggestWinMatch: string | null
+  longestStreak: number
+}
+
+function computeBetInsights(bets: LegacyBet[]): BetInsights {
+  let totalWagered = 0
+  let settledCount = 0
+  let pendingCount = 0
+  let winCount = 0
+  let biggestWin = 0
+  let biggestWinMatch: string | null = null
+  let currentStreak = 0
+  let longestStreak = 0
+
+  for (const bet of bets) {
+    const stakeNumber = Number.parseFloat(bet.stake.replace(/[^\d.]/g, ''))
+    if (Number.isFinite(stakeNumber)) {
+      totalWagered += stakeNumber
+    }
+
+    const status = bet.status.toLowerCase()
+    if (status.includes('pending')) {
+      pendingCount += 1
+      currentStreak = 0
+      continue
+    }
+
+    settledCount += 1
+    const profitNumber = Number.parseFloat(
+      bet.profitLoss.replace(/[^\d.\-+]/g, '').replace('+', ''),
+    )
+    const isWin = bet.profitLoss.startsWith('+') && profitNumber > 0
+
+    if (isWin) {
+      winCount += 1
+      currentStreak += 1
+      longestStreak = Math.max(longestStreak, currentStreak)
+
+      if (profitNumber > biggestWin) {
+        biggestWin = profitNumber
+        biggestWinMatch = bet.match
+      }
+    } else {
+      currentStreak = 0
+    }
+  }
+
+  const winRatePercent =
+    settledCount === 0 ? 0 : Math.round((winCount / settledCount) * 100)
+
+  return {
+    totalWagered,
+    settledCount,
+    pendingCount,
+    winCount,
+    winRatePercent,
+    biggestWin,
+    biggestWinMatch,
+    longestStreak,
+  }
+}
+
+function findLiveGameForBet(
+  bet: LegacyBet,
+  liveGames: LiveGameSnapshot[],
+): LiveGameSnapshot | null {
+  if (liveGames.length === 0) {
+    return null
+  }
+
+  return (
+    liveGames.find((game) => {
+      const event = legacyEvents.find((candidate) => candidate.id === game.eventId)
+      if (!event) {
+        return false
+      }
+      return (
+        bet.match.includes(event.home) || bet.match.includes(event.away)
+      )
+    }) ?? null
+  )
+}
+
 function BetsScreen({
   bets,
   onCashOut,
@@ -1544,6 +1784,28 @@ function BetsScreen({
 }) {
   const [typeFilter, setTypeFilter] = useState<BetTypeFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [liveGames, setLiveGames] = useState<LiveGameSnapshot[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+
+    function poll(): void {
+      loadLiveState().then((snapshot) => {
+        if (cancelled || !snapshot) {
+          return
+        }
+        setLiveGames(snapshot.games)
+      })
+    }
+
+    poll()
+    const id = setInterval(poll, 30_000)
+
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
   const visibleBets = bets.filter((bet) => {
     const typeMatches = typeFilter === 'all' || bet.type.toLowerCase() === typeFilter
     const betText = [
@@ -1559,6 +1821,8 @@ function BetsScreen({
 
     return typeMatches && matchesSearch(betText, searchQuery)
   })
+
+  const insights = useMemo(() => computeBetInsights(bets), [bets])
 
   return (
     <section className="legacy-stage" aria-labelledby="bets-title">
@@ -1578,6 +1842,33 @@ function BetsScreen({
             <option value="combined">Combined</option>
           </select>
         </label>
+      </div>
+
+      <div className="fd-bet-insights" aria-label="Bet insights">
+        <article>
+          <span>Total wagered</span>
+          <strong>${insights.totalWagered.toFixed(2)}</strong>
+          <small>{insights.settledCount} settled · {insights.pendingCount} pending</small>
+        </article>
+        <article>
+          <span>Win rate</span>
+          <strong>{insights.winRatePercent}%</strong>
+          <small>{insights.winCount} wins of {insights.settledCount} settled</small>
+        </article>
+        <article>
+          <span>Biggest win</span>
+          <strong>${insights.biggestWin.toFixed(2)}</strong>
+          <small>
+            {insights.biggestWin > 0
+              ? 'All-time peak settled ticket'
+              : 'No winning tickets yet'}
+          </small>
+        </article>
+        <article>
+          <span>Longest streak</span>
+          <strong>{insights.longestStreak}</strong>
+          <small>consecutive settled wins</small>
+        </article>
       </div>
       <div className="legacy-table-tools">
         <span>Showing {visibleBets.length} entries</span>
@@ -1616,6 +1907,9 @@ function BetsScreen({
                 isPending && Number.isFinite(stakeNumber)
                   ? stakeNumber * 0.92
                   : null
+              const liveGame = isPending
+                ? findLiveGameForBet(bet, liveGames)
+                : null
 
               return (
                 <tr key={bet.id}>
@@ -1631,7 +1925,19 @@ function BetsScreen({
                   >
                     {bet.profitLoss}
                   </td>
-                  <td>{bet.status}</td>
+                  <td>
+                    <div className="fd-bet-status">
+                      <span>{bet.status}</span>
+                      {liveGame && (
+                        <span className="fd-bet-live-chip" aria-label="Live game tracker">
+                          <span className="fd-live-dot" aria-hidden="true" />
+                          {liveGame.league} {liveGame.status} ·{' '}
+                          {liveGame.homeCode} {liveGame.homeScore} —{' '}
+                          {liveGame.awayCode} {liveGame.awayScore}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td>{bet.date}</td>
                   <td>
                     {cashoutValue !== null ? (
@@ -2121,7 +2427,60 @@ type SavedSlipSummary = {
   mode: SlipMode
   topSelection: string
   combinedPrice: number
+  items?: LegacySlipItem[]
 }
+
+type FdNotification = {
+  id: string
+  tone: 'info' | 'success' | 'warning'
+  title: string
+  body: string
+  ago: string
+  read: boolean
+}
+
+const DEFAULT_NOTIFICATIONS: FdNotification[] = [
+  {
+    id: 'notif-cashout',
+    tone: 'success',
+    title: 'Cash-out available',
+    body: 'Your Chiefs ML pending bet has a cash-out offer locked in.',
+    ago: '2m ago',
+    read: false,
+  },
+  {
+    id: 'notif-boost',
+    tone: 'info',
+    title: 'New boost dropped',
+    body: 'Lakers in regulation boosted from +120 to +200. Limited time.',
+    ago: '14m ago',
+    read: false,
+  },
+  {
+    id: 'notif-live-goal',
+    tone: 'info',
+    title: "Live: Arsenal score in the 65'",
+    body: 'Arsenal vs Barca is now level at 1-1 in the second half.',
+    ago: '22m ago',
+    read: false,
+  },
+  {
+    id: 'notif-promo-refer',
+    tone: 'info',
+    title: 'Refer a friend, earn $50',
+    body: 'They place their first $20 bet, you both bank a Bonus Bet.',
+    ago: '1h ago',
+    read: true,
+  },
+  {
+    id: 'notif-editor',
+    tone: 'success',
+    title: "Editor's pick of the day",
+    body: 'Mahomes O 1.5 passing TDs — full write-up on the hub.',
+    ago: '3h ago',
+    read: true,
+  },
+]
 
 type OddsBoardSportFilter = 'all' | SportKey
 type OddsBoardCategoryFilter = 'all' | OddsBoardCategory
@@ -3852,6 +4211,249 @@ function SearchResultsScreen({
               </div>
             </li>
           ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+// ----- Notifications panel -----
+function FdNotificationsPanel({
+  notifications,
+  onClose,
+  onMarkRead,
+  onMarkAllRead,
+}: {
+  notifications: FdNotification[]
+  onClose: () => void
+  onMarkRead: (id: string) => void
+  onMarkAllRead: () => void
+}) {
+  const unread = notifications.filter((notification) => !notification.read).length
+
+  return (
+    <div
+      className="fd-notifications-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
+      <aside
+        className="fd-notifications-panel"
+        role="region"
+        aria-label="Inbox"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header>
+          <div>
+            <strong>Inbox</strong>
+            <small>
+              {unread === 0 ? 'All caught up' : `${unread} unread`}
+            </small>
+          </div>
+          <div className="fd-notifications-actions">
+            <button
+              type="button"
+              onClick={onMarkAllRead}
+              disabled={unread === 0}
+            >
+              Mark all read
+            </button>
+            <button
+              className="legacy-close"
+              type="button"
+              aria-label="Close inbox"
+              onClick={onClose}
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+        <ul>
+          {notifications.length === 0 && (
+            <li className="legacy-empty">No notifications yet.</li>
+          )}
+          {notifications.map((notification) => (
+            <li
+              key={notification.id}
+              className={`fd-notification fd-notification-${notification.tone} ${
+                notification.read ? 'is-read' : ''
+              }`}
+            >
+              <div>
+                <strong>{notification.title}</strong>
+                <span>{notification.body}</span>
+                <small>{notification.ago}</small>
+              </div>
+              {!notification.read && (
+                <button
+                  type="button"
+                  aria-label={`Mark "${notification.title}" as read`}
+                  onClick={() => onMarkRead(notification.id)}
+                >
+                  Mark read
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </aside>
+    </div>
+  )
+}
+
+// ----- Settings screen -----
+function SettingsScreen({
+  oddsFormat,
+  onChangeOddsFormat,
+}: {
+  oddsFormat: OddsFormat
+  onChangeOddsFormat: (next: OddsFormat) => void
+}) {
+  return (
+    <section className="legacy-stage fd-settings" aria-labelledby="settings-title">
+      <div className="legacy-table-header">
+        <div>
+          <p>Personal preferences</p>
+          <h1 id="settings-title">Settings</h1>
+        </div>
+      </div>
+
+      <article className="fd-settings-card">
+        <header>
+          <h3>Odds format</h3>
+          <p>How prices are displayed across the board, slip, and odds pages.</p>
+        </header>
+        <div className="fd-settings-toggle" role="radiogroup" aria-label="Odds format">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={oddsFormat === 'decimal'}
+            className={oddsFormat === 'decimal' ? 'active' : ''}
+            onClick={() => onChangeOddsFormat('decimal')}
+          >
+            Decimal
+            <small>1.91 · 2.50 · 4.00</small>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={oddsFormat === 'american'}
+            className={oddsFormat === 'american' ? 'active' : ''}
+            onClick={() => onChangeOddsFormat('american')}
+          >
+            American
+            <small>-110 · +150 · +300</small>
+          </button>
+        </div>
+      </article>
+
+      <article className="fd-settings-card">
+        <header>
+          <h3>Responsible play</h3>
+          <p>Personal limits — this app is a simulator; nothing is wagered.</p>
+        </header>
+        <ul className="fd-settings-list">
+          <li>
+            <strong>Max stake per ticket</strong>
+            <span>$100,000 (simulator cap)</span>
+          </li>
+          <li>
+            <strong>Cooling-off period</strong>
+            <span>Not enabled</span>
+          </li>
+          <li>
+            <strong>Session reminder</strong>
+            <span>Every 60 minutes (placeholder)</span>
+          </li>
+        </ul>
+      </article>
+
+      <article className="fd-settings-card">
+        <header>
+          <h3>About</h3>
+          <p>ProphetPicks · Personal sportsbook simulator</p>
+        </header>
+        <ul className="fd-settings-list">
+          <li>
+            <strong>Build</strong>
+            <span>codex/prophetpicks-design</span>
+          </li>
+          <li>
+            <strong>API status</strong>
+            <span>See /api/health</span>
+          </li>
+          <li>
+            <strong>Repository</strong>
+            <span>github.com/durga710/ProphetPicks</span>
+          </li>
+        </ul>
+      </article>
+    </section>
+  )
+}
+
+// ----- My Slips full screen -----
+function MySlipsScreen({
+  savedSlips,
+  onReload,
+}: {
+  savedSlips: SavedSlipSummary[]
+  onReload: (slip: SavedSlipSummary) => void
+}) {
+  return (
+    <section className="legacy-stage fd-my-slips" aria-labelledby="my-slips-title">
+      <div className="legacy-table-header">
+        <div>
+          <p>Your saved tickets</p>
+          <h1 id="my-slips-title">My Slips</h1>
+        </div>
+        <span className="legacy-slip-count">
+          {savedSlips.length} {savedSlips.length === 1 ? 'slip' : 'slips'}
+        </span>
+      </div>
+
+      {savedSlips.length === 0 && (
+        <div className="legacy-empty">
+          Save a slip from the editor and it lands here for quick reload.
+        </div>
+      )}
+
+      {savedSlips.length > 0 && (
+        <ul className="fd-my-slips-list">
+          {savedSlips.map((slip) => {
+            const savedDate = new Date(slip.savedAt)
+            const dateLabel = Number.isFinite(savedDate.getTime())
+              ? savedDate.toLocaleString([], {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : slip.savedAt
+            const canReload = Array.isArray(slip.items) && slip.items.length > 0
+
+            return (
+              <li key={slip.slipId}>
+                <div>
+                  <strong>{slip.topSelection}</strong>
+                  <span>
+                    {slip.legCount}-leg · {slip.mode} · saved {dateLabel}
+                  </span>
+                </div>
+                <div className="fd-my-slips-meta">
+                  <b>{formatDecimal(slip.combinedPrice)}</b>
+                  <button
+                    type="button"
+                    aria-label={`Reload slip ${slip.slipId}`}
+                    onClick={() => onReload(slip)}
+                    disabled={!canReload}
+                  >
+                    {canReload ? 'Reload' : 'Snapshot'}
+                  </button>
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
     </section>
