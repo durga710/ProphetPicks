@@ -61,7 +61,7 @@ test.describe('ProphetPicks sportsbook', () => {
   test('opens sport-specific NFL markets', async ({ page }) => {
     await page.goto('/')
 
-    await page.getByRole('button', { name: 'NFL' }).click()
+    await page.getByRole('button', { name: 'NFL', exact: true }).click()
 
     await expect(page.getByRole('heading', { name: /^NFL$/i })).toBeVisible()
     await expect(page.getByLabel(/Kansas City Chiefs crest/i)).toBeVisible()
@@ -94,7 +94,7 @@ test.describe('ProphetPicks sportsbook', () => {
   test('places a mock bet and records it in history and ledger', async ({ page }) => {
     await page.goto('/')
 
-    await page.getByRole('button', { name: 'NFL' }).click()
+    await page.getByRole('button', { name: 'NFL', exact: true }).click()
     await page
       .getByRole('button', {
         name: /Open Kansas City Chiefs VS Buffalo Bills market/i,

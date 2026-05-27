@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   CalendarDays,
   ChevronDown,
@@ -49,6 +49,7 @@ import {
   type OddsQuote,
 } from '../domain/oddsBoard'
 import { loadOddsQuotes } from '../data/providers/oddsApi'
+import { loadBets, saveBet, saveSlip } from '../data/providers/persistence'
 
 type Screen =
   | 'account'
@@ -193,6 +194,36 @@ export function LegacyBetfairApp() {
   const activeSportDefinition = getSport(activeSport)
   const predictions = useMemo(() => getResolvedPredictions(), [])
 
+  // Optional persistence: warm-load any server-side bet history. Soft-fails
+  // when /api/bets is unreachable; the mockBets state remains the source of
+  // truth for the current session.
+  useEffect(() => {
+    let cancelled = false
+
+    loadBets().then((result) => {
+      // Skip the demo payload (legacyBets already covers it in the view) and
+      // only merge when the API is actually reading from Neon.
+      if (cancelled || !result || result.source !== 'neon') {
+        return
+      }
+
+      setMockBets((current) => {
+        const existing = new Set(current.map((bet) => bet.id))
+        const merged = [...current]
+        for (const bet of result.bets) {
+          if (!existing.has(bet.id)) {
+            merged.push(bet)
+          }
+        }
+        return merged
+      })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const groupedEvents = useMemo(
     () =>
       activeEvents.reduce<Record<string, LegacyEvent[]>>((groups, event) => {
@@ -309,25 +340,29 @@ export function LegacyBetfairApp() {
     const isMultiLeg = slipItems.length > 1
     const ticketType = slipMode === 'combined' ? 'Combined' : 'Simple'
 
-    setMockBets((bets) => [
-      {
-        id: createdId,
-        match: eventName(primaryItem.event),
-        market:
-          slipMode === 'combined' && isMultiLeg
-            ? `${slipItems.length}-leg parlay`
-            : slipMode === 'simple' && isMultiLeg
-              ? `${slipItems.length} straight bets`
-              : primaryItem.market.label,
-        type: ticketType,
-        stake: formatCurrency(risk),
-        price,
-        profitLoss: formatSignedCurrency(returnValue - risk),
-        date: '2026-05-26 18:00',
-        status: 'Pending Mock',
-      },
-      ...bets,
-    ])
+    const newBet: LegacyBet = {
+      id: createdId,
+      match: eventName(primaryItem.event),
+      market:
+        slipMode === 'combined' && isMultiLeg
+          ? `${slipItems.length}-leg parlay`
+          : slipMode === 'simple' && isMultiLeg
+            ? `${slipItems.length} straight bets`
+            : primaryItem.market.label,
+      type: ticketType,
+      stake: formatCurrency(risk),
+      price,
+      profitLoss: formatSignedCurrency(returnValue - risk),
+      date: '2026-05-26 18:00',
+      status: 'Pending Mock',
+    }
+
+    setMockBets((bets) => [newBet, ...bets])
+
+    // Optional server-side persistence. Soft-fails offline; React state stays
+    // the source of truth regardless of network outcome.
+    void saveBet(newBet)
+    void saveSlip(slipItems, slipMode, stake)
     setMockLedgerRows((rows) => [
       {
         id: `ledger-${createdId}`,
@@ -453,9 +488,22 @@ export function LegacyBetfairApp() {
         <main className="legacy-main">
           {(screen === 'events' || screen === 'today' || screen === 'odds') && (
             <>
+              <FdSportHub sport={activeSport} eventCount={activeEvents.length} />
               <FdFeaturedHero onAddSlipItem={addSlipItem} />
               <FdPromoStrip />
               <FdBoostedOddsRail onAddSlipItem={addSlipItem} />
+              <FdTrendingRail onAddSlipItem={addSlipItem} />
+              <FdPopularParlays
+                onLoadParlay={(parlayItems) => {
+                  setSlipItems(parlayItems)
+                  setSlipMode('combined')
+                  setIsConfirmed(false)
+                  setIsSlipOpen(true)
+                  setStatus(
+                    `Loaded ${parlayItems.length}-leg parlay into your slip.`,
+                  )
+                }}
+              />
               <FdLiveNowRail onAddSlipItem={addSlipItem} />
             </>
           )}
@@ -856,9 +904,11 @@ function EventsScreen({
               <div className="legacy-event-list dense">
                 {events.map((event) => {
                   const primary = pickPrimaryMarkets(event)
+                  const note = EDITOR_NOTES[event.id]
 
                   return (
-                    <div className="fd-row" key={event.id}>
+                    <Fragment key={event.id}>
+                    <div className="fd-row">
                       <div className="fd-row-matchup">
                         <span className="fd-row-time">
                           {event.time}
@@ -912,6 +962,8 @@ function EventsScreen({
                         onAdd={onAddSlipItem}
                       />
                     </div>
+                    {note && <FdEditorNote note={note} />}
+                    </Fragment>
                   )
                 })}
               </div>
@@ -2369,6 +2421,353 @@ function FdBoostedOddsRail({
         ))}
       </div>
     </section>
+  )
+}
+
+// ----- Trending Bets rail -----
+type TrendingBet = {
+  id: string
+  eventId: string
+  marketId: string
+  selectionId: string
+  caption: string
+  adoptionPercent: number
+}
+
+const TRENDING_BETS: TrendingBet[] = [
+  {
+    id: 'tr-chiefs',
+    eventId: 'chiefs-bills',
+    marketId: 'moneyline',
+    selectionId: 'home-moneyline',
+    caption: 'Chiefs ML',
+    adoptionPercent: 67,
+  },
+  {
+    id: 'tr-mahomes',
+    eventId: 'chiefs-bills',
+    marketId: 'player-props',
+    selectionId: 'qb-passing',
+    caption: 'Mahomes O 255.5 pass yds',
+    adoptionPercent: 82,
+  },
+  {
+    id: 'tr-arsenal',
+    eventId: 'arsenal-barcelona',
+    marketId: 'match-odds',
+    selectionId: 'home',
+    caption: 'Arsenal to win',
+    adoptionPercent: 58,
+  },
+  {
+    id: 'tr-lakers',
+    eventId: 'lakers-celtics',
+    marketId: 'moneyline',
+    selectionId: 'home-moneyline',
+    caption: 'Lakers ML',
+    adoptionPercent: 64,
+  },
+  {
+    id: 'tr-over-247',
+    eventId: 'warriors-knicks',
+    marketId: 'total',
+    selectionId: 'over-total',
+    caption: 'Warriors-Knicks Over 224.5',
+    adoptionPercent: 71,
+  },
+  {
+    id: 'tr-leafs',
+    eventId: 'leafs-bruins',
+    marketId: 'moneyline',
+    selectionId: 'home-moneyline',
+    caption: 'Leafs ML',
+    adoptionPercent: 53,
+  },
+]
+
+function resolveSlipItem(
+  eventId: string,
+  marketId: string,
+  selectionId: string,
+): LegacySlipItem | null {
+  const event = legacyEvents.find((candidate) => candidate.id === eventId)
+  if (!event) {
+    return null
+  }
+
+  const market = getMarketsForEvent(event).find(
+    (candidate) => candidate.id === marketId,
+  )
+  const selection = market?.selections.find(
+    (option) => option.id === selectionId,
+  )
+
+  if (!market || !selection) {
+    return null
+  }
+
+  return { event, market, selection }
+}
+
+function FdTrendingRail({
+  onAddSlipItem,
+}: {
+  onAddSlipItem: (item: LegacySlipItem) => void
+}) {
+  return (
+    <section className="fd-trending-rail" aria-label="Trending bets">
+      <header>
+        <span>Trending bets right now</span>
+        <small>What ProphetPicks players are tailing</small>
+      </header>
+      <div className="fd-trending-track">
+        {TRENDING_BETS.map((bet) => {
+          const item = resolveSlipItem(bet.eventId, bet.marketId, bet.selectionId)
+          if (!item) {
+            return null
+          }
+
+          const american = formatAmericanOdds(
+            decimalToAmericanOdds(item.selection.odds),
+          )
+
+          return (
+            <button
+              className="fd-trending-card"
+              key={bet.id}
+              type="button"
+              aria-label={`Tail ${bet.caption} at ${formatDecimal(item.selection.odds)}`}
+              onClick={() => onAddSlipItem(item)}
+            >
+              <span className="fd-trending-share">
+                <strong>{bet.adoptionPercent}%</strong>
+                <em>of bets</em>
+              </span>
+              <span className="fd-trending-caption">{bet.caption}</span>
+              <span className="fd-trending-meta">
+                <small>{item.market.label}</small>
+                <b>{american}</b>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+// ----- Popular Parlays rail -----
+type PopularParlay = {
+  id: string
+  name: string
+  tag: string
+  legs: Array<{ eventId: string; marketId: string; selectionId: string; line: string }>
+}
+
+const POPULAR_PARLAYS: PopularParlay[] = [
+  {
+    id: 'parlay-nfl-sunday',
+    name: 'NFL Sunday 3-leg',
+    tag: 'Most-built parlay this week',
+    legs: [
+      { eventId: 'chiefs-bills', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Chiefs ML' },
+      { eventId: 'niners-eagles', marketId: 'spread', selectionId: 'home-spread', line: '49ers -2.5' },
+      { eventId: 'chiefs-bills', marketId: 'total', selectionId: 'over-total', line: 'Over 47.5' },
+    ],
+  },
+  {
+    id: 'parlay-nba-tuesday',
+    name: 'NBA Tuesday lock',
+    tag: 'Sharp two-team parlay',
+    legs: [
+      { eventId: 'lakers-celtics', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Lakers ML' },
+      { eventId: 'warriors-knicks', marketId: 'total', selectionId: 'over-total', line: 'Over 224.5' },
+    ],
+  },
+  {
+    id: 'parlay-soccer-knockouts',
+    name: 'UCL knockout double',
+    tag: 'Both home favorites',
+    legs: [
+      { eventId: 'arsenal-barcelona', marketId: 'match-odds', selectionId: 'home', line: 'Arsenal' },
+      { eventId: 'psg-chelsea', marketId: 'match-odds', selectionId: 'home', line: 'PSG' },
+    ],
+  },
+  {
+    id: 'parlay-friday-mixer',
+    name: 'Friday night mixer',
+    tag: 'Hockey + tennis longshot',
+    legs: [
+      { eventId: 'leafs-bruins', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Leafs ML' },
+      { eventId: 'rangers-avalanche', marketId: 'moneyline', selectionId: 'home-moneyline', line: 'Rangers ML' },
+      { eventId: 'alcaraz-sinner', marketId: 'winner', selectionId: 'home-winner', line: 'Alcaraz' },
+    ],
+  },
+]
+
+function FdPopularParlays({
+  onLoadParlay,
+}: {
+  onLoadParlay: (items: LegacySlipItem[]) => void
+}) {
+  function build(parlay: PopularParlay): void {
+    const items = parlay.legs
+      .map((leg) => resolveSlipItem(leg.eventId, leg.marketId, leg.selectionId))
+      .filter((item): item is LegacySlipItem => item !== null)
+
+    if (items.length > 0) {
+      onLoadParlay(items)
+    }
+  }
+
+  return (
+    <section className="fd-popular-parlays" aria-label="Popular parlays">
+      <header>
+        <span>Popular parlays</span>
+        <small>One-tap, pre-built tickets</small>
+      </header>
+      <div className="fd-parlay-grid">
+        {POPULAR_PARLAYS.map((parlay) => {
+          const items = parlay.legs
+            .map((leg) => resolveSlipItem(leg.eventId, leg.marketId, leg.selectionId))
+            .filter((item): item is LegacySlipItem => item !== null)
+          const combined = items.reduce(
+            (product, item) => product * item.selection.odds,
+            1,
+          )
+          const american = items.length === 0 ? '—' : formatAmericanOdds(decimalToAmericanOdds(combined))
+
+          return (
+            <article className="fd-parlay-card" key={parlay.id}>
+              <header>
+                <strong>{parlay.name}</strong>
+                <small>{parlay.tag}</small>
+              </header>
+              <ul>
+                {parlay.legs.map((leg) => (
+                  <li key={`${parlay.id}-${leg.selectionId}`}>{leg.line}</li>
+                ))}
+              </ul>
+              <footer>
+                <span>
+                  <em>{items.length}-leg price</em>
+                  <b>{american}</b>
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Load ${parlay.name} into slip`}
+                  onClick={() => build(parlay)}
+                >
+                  Add all legs
+                </button>
+              </footer>
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+// ----- Sport-specific hub header -----
+type SportHubMeta = {
+  tagline: string
+  storyline: string
+}
+
+const SPORT_HUB: Record<SportKey, SportHubMeta> = {
+  nfl: {
+    tagline: 'NFL Sunday Slate',
+    storyline: 'Mahomes vs Allen headlines a primetime AFC playoff preview.',
+  },
+  nba: {
+    tagline: 'NBA Tuesday Schedule',
+    storyline: 'Lakers-Celtics finale of the season series tips at Crypto.com.',
+  },
+  mlb: {
+    tagline: 'MLB Marquee',
+    storyline: 'Cole-Buehler in the Bronx; Braves visit the Cubs in the matinee.',
+  },
+  nhl: {
+    tagline: 'NHL Tonight',
+    storyline: 'Matthews-Pastrnak Atlantic showdown on the back end of a back-to-back.',
+  },
+  soccer: {
+    tagline: 'Champions League Matchday',
+    storyline: 'Two Group A heavyweights in one window: Arsenal-Barca and Roma-Real.',
+  },
+  ncaaf: {
+    tagline: 'College Football Saturday',
+    storyline: 'Georgia-Alabama in Athens decides the SEC tiebreaker.',
+  },
+  ncaab: {
+    tagline: 'College Hoops Top 25',
+    storyline: 'Duke-Kansas at the Garden, primetime national TV.',
+  },
+  tennis: {
+    tagline: 'Roland Garros R16',
+    storyline: 'Alcaraz and Sinner finally meet on Court Philippe-Chatrier.',
+  },
+  golf: {
+    tagline: 'Masters Thursday',
+    storyline: 'Scheffler-McIlroy headline grouping off the first tee at Augusta.',
+  },
+  ufc: {
+    tagline: 'UFC Main Event Week',
+    storyline: 'Makhachev defends the lightweight strap against Oliveira II.',
+  },
+  boxing: {
+    tagline: 'Pound-for-Pound Showdown',
+    storyline: 'Crawford-Canelo opens at Allegiant — the fight everyone wanted.',
+  },
+  f1: {
+    tagline: 'British Grand Prix',
+    storyline: 'Verstappen on pole, Hamilton chasing his ninth Silverstone win.',
+  },
+  cricket: {
+    tagline: 'India-Australia ODI',
+    storyline: 'MCG, day-night, second match of the bilateral series.',
+  },
+  esports: {
+    tagline: 'LCK Spring Finals',
+    storyline: 'T1 vs Gen.G — the rivalry that defines the spring split.',
+  },
+}
+
+function FdSportHub({ sport, eventCount }: { sport: SportKey; eventCount: number }) {
+  const meta = SPORT_HUB[sport]
+  if (!meta) {
+    return null
+  }
+
+  return (
+    <section className="fd-sport-hub" aria-label={`${meta.tagline} hub`}>
+      <div>
+        <span>{meta.tagline}</span>
+        <strong>{meta.storyline}</strong>
+      </div>
+      <span className="fd-sport-hub-count">
+        {eventCount} {eventCount === 1 ? 'game' : 'games'} on the board
+      </span>
+    </section>
+  )
+}
+
+// ----- Editor's inline notes -----
+const EDITOR_NOTES: Record<string, string> = {
+  'chiefs-bills': 'Sharp action moved the spread from -2.5 to -3 this morning. 71% of public bets are on the Bills, 78% of money on the Chiefs.',
+  'arsenal-barcelona': 'Total is down to 2.5 after both teams ruled their starting strikers questionable. Lean toward unders if you are not betting sides.',
+  'lakers-celtics': 'Boston is on the second night of a back-to-back. Lakers are 11-3 ATS at home off two days of rest this season.',
+  'leafs-bruins': 'Maple Leafs are 6-1 in their last 7 vs Boston when Matthews lines up at center on the top line.',
+  'duke-kansas': 'Books opened Duke -3, market moved to Kansas -1.5 after the Blue Devils ruled out their starting PG. Stay nimble.',
+}
+
+function FdEditorNote({ note }: { note: string }) {
+  return (
+    <div className="fd-editor-note" role="note">
+      <span>Editor's note</span>
+      <p>{note}</p>
+    </div>
   )
 }
 
