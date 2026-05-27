@@ -54,6 +54,7 @@ import {
   loadBets,
   loadLiveState,
   loadSavedSlips,
+  loadTeamLogo,
   saveBet,
   saveSlip,
 } from '../data/providers/persistence'
@@ -1301,10 +1302,12 @@ function TeamCrest({
   secondary: string
   logoUrl?: string
 }) {
+  const resolvedLogo = useRealTeamLogo(label, logoUrl)
+
   return (
     <span className="legacy-team-crest-wrap">
       <span
-        className={`legacy-team-crest ${logoUrl ? 'has-logo' : ''}`}
+        className={`legacy-team-crest ${resolvedLogo ? 'has-logo' : ''}`}
         role="img"
         aria-label={`${label} crest`}
         style={{
@@ -1312,9 +1315,9 @@ function TeamCrest({
           '--team-secondary': secondary,
         } as CSSProperties}
       >
-        {logoUrl ? (
+        {resolvedLogo ? (
           <img
-            src={logoUrl}
+            src={resolvedLogo}
             alt=""
             loading="lazy"
             decoding="async"
@@ -1815,6 +1818,9 @@ function BetsScreen({
   const [liveGames, setLiveGames] = useState<LiveGameSnapshot[]>([])
 
   useEffect(() => {
+    if (!import.meta.env.PROD) {
+      return
+    }
     let cancelled = false
 
     function poll(): void {
@@ -2731,6 +2737,59 @@ function OddsBoardTile({
       </span>
     </button>
   )
+}
+
+// ----- Real team logo hook -----
+// Per-session cache: avoids hitting /api/team-logo for the same team twice
+// even when many TeamCrests render across the page.
+const teamLogoCache = new Map<string, string | null>()
+const teamLogoInflight = new Map<string, Promise<string | null>>()
+
+function useRealTeamLogo(name: string, explicit?: string): string | undefined {
+  // Synchronous resolution: explicit prop wins, else hit the per-session cache
+  // (which is a plain Map populated by previous renders' async fetches).
+  const synchronous: string | undefined = explicit
+    ? explicit
+    : teamLogoCache.has(name)
+      ? teamLogoCache.get(name) ?? undefined
+      : undefined
+
+  const [asyncResolved, setAsyncResolved] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    if (explicit || !name || teamLogoCache.has(name)) {
+      return
+    }
+    // The /api/team-logo route only exists in the deployed Vercel build.
+    // Skipping the fetch in dev/test keeps Vite's dev server quiet and
+    // avoids dozens of HTML-falling-through-as-JSON failures during
+    // Playwright runs.
+    if (!import.meta.env.PROD) {
+      return
+    }
+
+    let cancelled = false
+    const inflight =
+      teamLogoInflight.get(name) ??
+      loadTeamLogo(name).then((url) => {
+        teamLogoCache.set(name, url)
+        teamLogoInflight.delete(name)
+        return url
+      })
+    teamLogoInflight.set(name, inflight)
+
+    inflight.then((url) => {
+      if (!cancelled) {
+        setAsyncResolved(url ?? undefined)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [explicit, name])
+
+  return synchronous ?? asyncResolved
 }
 
 // ----- Viewport width hook (used to gate desktop/mobile-only chrome) -----
@@ -3968,23 +4027,31 @@ function FdLiveNowRail({
   // Server reconciliation: prefer SSE (/api/live/stream), fall back to polling
   // /api/live every 30s when EventSource is unavailable or the stream errors.
   // Local 8s ticker keeps the rail visibly alive between server pushes.
+  // Skipped in dev/test — the /api routes only exist on the Vercel build.
   useEffect(() => {
+    if (!import.meta.env.PROD) {
+      return
+    }
     let cancelled = false
     let pollTimer: ReturnType<typeof setInterval> | null = null
     let source: EventSource | null = null
 
     function applySnapshot(snapshot: {
-      source: 'demo' | 'sportradar' | 'odds-api'
+      source: 'demo' | 'sportradar' | 'odds-api' | 'sportsdb'
       games: LiveGame[]
     }): void {
       if (cancelled) {
         return
       }
-      setGames(snapshot.games)
+      if (snapshot.games.length > 0) {
+        setGames(snapshot.games)
+      }
       setFeedSource(
         snapshot.source === 'demo'
           ? 'Server demo state'
-          : `Live feed: ${snapshot.source}`,
+          : snapshot.source === 'sportsdb'
+            ? 'Live feed: TheSportsDB'
+            : `Live feed: ${snapshot.source}`,
       )
     }
 

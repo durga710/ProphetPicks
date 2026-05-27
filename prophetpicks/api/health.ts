@@ -15,6 +15,7 @@ interface HealthResponse {
     oddsApi: boolean
     apiFootball: boolean
     sportradar: boolean
+    sportsdb: 'public' | 'private'
   }
   ts: string
 }
@@ -46,6 +47,7 @@ export default async function handler(
       oddsApi: Boolean(process.env.ODDS_API_KEY),
       apiFootball: Boolean(process.env.APIFOOTBALL_KEY),
       sportradar: Boolean(process.env.SPORTRADAR_API_KEY),
+      sportsdb: process.env.SPORTSDB_API_KEY ? 'private' : 'public',
     },
     ts: new Date().toISOString(),
   }

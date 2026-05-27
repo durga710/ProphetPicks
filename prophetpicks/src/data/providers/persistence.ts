@@ -94,12 +94,22 @@ interface LiveGameSnapshot {
 }
 
 interface LiveApiResponse {
-  source: 'demo' | 'sportradar' | 'odds-api'
+  source: 'demo' | 'sportradar' | 'odds-api' | 'sportsdb'
   games: LiveGameSnapshot[]
   generatedAt: string
 }
 
+/**
+ * Prefer the real TheSportsDB-backed /api/livescore feed; fall back to the
+ * demo /api/live route only if the real endpoint errors out (network blip,
+ * upstream 5xx). The frontend renders the source label so the user can
+ * always see whether they're looking at real or demo data.
+ */
 export async function loadLiveState(): Promise<LiveApiResponse | null> {
+  const real = await safeFetchJson<LiveApiResponse>('/api/livescore')
+  if (real) {
+    return real
+  }
   return safeFetchJson<LiveApiResponse>('/api/live')
 }
 
@@ -121,6 +131,33 @@ interface SlipsListApiResponse {
 
 export async function loadSavedSlips(): Promise<SlipsListApiResponse | null> {
   return safeFetchJson<SlipsListApiResponse>(SLIPS_ENDPOINT)
+}
+
+interface TeamLogoApiResponse {
+  source: 'sportsdb' | 'demo'
+  name: string
+  logoUrl: string | null
+  sport: string | null
+}
+
+/**
+ * Resolve a real team badge URL from the server proxy (TheSportsDB v1).
+ * Returns null on any error or when the upstream has no badge on file.
+ */
+export async function loadTeamLogo(name: string): Promise<string | null> {
+  if (!name) {
+    return null
+  }
+
+  const json = await safeFetchJson<TeamLogoApiResponse>(
+    `/api/team-logo?name=${encodeURIComponent(name)}`,
+  )
+
+  if (!json || json.source !== 'sportsdb' || !json.logoUrl) {
+    return null
+  }
+
+  return json.logoUrl
 }
 
 async function safeFetchJson<T>(

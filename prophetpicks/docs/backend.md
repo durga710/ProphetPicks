@@ -8,11 +8,14 @@ when no provider credentials or database are configured.
 
 | Route          | Methods   | Purpose                                            |
 | -------------- | --------- | -------------------------------------------------- |
-| `/api/health`  | GET       | Reports which providers + Neon are wired (booleans only). |
-| `/api/odds`    | GET       | Pulls live NFL h2h / spread / total quotes from The Odds API when `ODDS_API_KEY` is set; soft-fails to `[]`. |
-| `/api/bets`    | GET, POST | Bet history (Neon if `DATABASE_URL` set, demo otherwise). Upsert on POST. |
-| `/api/slips`   | GET, POST | Slip persistence. POST writes both `prophetpicks_slips` and `prophetpicks_slip_legs` in sequence; GET returns the last 25. |
-| `/api/live`    | GET       | Demo live game state (status clock + scores), minute-deterministic. |
+| `/api/health`     | GET       | Reports which providers + Neon are wired. |
+| `/api/odds`       | GET       | Pulls live NFL h2h / spread / total quotes from The Odds API when `ODDS_API_KEY` is set; soft-fails to `[]`. |
+| `/api/bets`       | GET, POST | Bet history (Neon if `DATABASE_URL` set, demo otherwise). Upsert on POST. |
+| `/api/slips`      | GET, POST | Slip persistence. POST writes both `prophetpicks_slips` and `prophetpicks_slip_legs`; GET returns the last 25. |
+| `/api/live`       | GET       | Demo live game state — minute-deterministic synthetic feed. Used as last-resort fallback. |
+| `/api/live/stream`| GET (SSE) | Server-Sent Events stream of demo live game state, 10s ticks. |
+| `/api/livescore`  | GET       | **Real** in-play scores via TheSportsDB v1 `livescore.php`. Public key `3` works by default; set `SPORTSDB_API_KEY` for a private key. |
+| `/api/team-logo`  | GET       | **Real** team badge URL via TheSportsDB `searchteams.php`. Query `?name=<team>`. Public key `3` works by default. Cached 1h at the edge. |
 
 All routes return `{ source, ..., generatedAt }` so the frontend can badge the
 active feed.
@@ -27,6 +30,7 @@ Set in Vercel (Project → Settings → Environment Variables) or in a local
 | `ODDS_API_KEY`        | `/api/odds`            | [The Odds API](https://the-odds-api.com). Free tier (~500 calls/month) is enough for personal use. |
 | `APIFOOTBALL_KEY`     | scripts only           | Used by `scripts/sync-soccer-fixtures.ts`. |
 | `SPORTRADAR_API_KEY`  | `/api/live` (future)   | Reserved. |
+| `SPORTSDB_API_KEY`    | `/api/team-logo`, `/api/livescore` | TheSportsDB private key. Defaults to public test key `3` — no signup needed. Real team badges and live scores flow regardless of this var. |
 | `DATABASE_URL`        | `/api/bets`, `/api/slips` | Neon Postgres connection string. When unset, routes serve demo data and acknowledge writes in-memory. |
 
 All keys are server-side only. Never prefix with `VITE_`.
