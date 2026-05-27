@@ -3278,7 +3278,19 @@ function FdLiveNowRail({
     if (typeof EventSource === 'function') {
       try {
         source = new EventSource('/api/live/stream')
+
+        // If no snapshot has arrived after 6s the upstream proxy is likely
+        // buffering. Switch to polling so the rail stays current.
+        const connectionTimeout = setTimeout(() => {
+          source?.close()
+          source = null
+          if (!pollTimer) {
+            startPolling()
+          }
+        }, 6000)
+
         source.addEventListener('snapshot', (event) => {
+          clearTimeout(connectionTimeout)
           try {
             const data = JSON.parse((event as MessageEvent).data)
             applySnapshot(data)
@@ -3286,7 +3298,9 @@ function FdLiveNowRail({
             // Ignore malformed payloads.
           }
         })
+
         source.onerror = () => {
+          clearTimeout(connectionTimeout)
           source?.close()
           source = null
           if (!pollTimer) {
