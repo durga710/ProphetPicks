@@ -94,7 +94,7 @@ interface LiveGameSnapshot {
 }
 
 interface LiveApiResponse {
-  source: 'demo' | 'sportradar' | 'odds-api' | 'sportsdb'
+  source: 'demo' | 'sportradar' | 'odds-api' | 'sportsdb' | 'espn'
   games: LiveGameSnapshot[]
   generatedAt: string
 }
@@ -138,6 +138,49 @@ interface TeamLogoApiResponse {
   name: string
   logoUrl: string | null
   sport: string | null
+}
+
+export interface ScheduleTeam {
+  name: string
+  code: string
+  logoUrl: string | null
+  score: number | null
+}
+
+export interface ScheduleGame {
+  id: string
+  shortName: string
+  longName: string
+  startsAt: string
+  league: string
+  state: 'pre' | 'in' | 'post'
+  statusDetail: string
+  venue: string | null
+  home: ScheduleTeam
+  away: ScheduleTeam
+}
+
+interface ScheduleApiResponse {
+  source: 'espn' | 'demo'
+  sport: string
+  games: ScheduleGame[]
+  generatedAt: string
+}
+
+/**
+ * Pull the next ~12 real upcoming games for the active sport from ESPN's
+ * public scoreboard via /api/schedule. Returns null when offline or when
+ * the sport is unsupported.
+ */
+export async function loadSchedule(
+  sport: string,
+): Promise<ScheduleApiResponse | null> {
+  if (!sport) {
+    return null
+  }
+  return safeFetchJson<ScheduleApiResponse>(
+    `/api/schedule?sport=${encodeURIComponent(sport)}`,
+  )
 }
 
 export interface TeamLogoLookup {

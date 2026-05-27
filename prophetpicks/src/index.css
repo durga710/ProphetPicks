@@ -3795,6 +3795,144 @@ img {
   letter-spacing: 0.3px;
 }
 
+/* ===== TODAY'S REAL GAMES RAIL (ESPN) ===== */
+.fd-real-schedule {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-surface-line);
+  border-left: 4px solid var(--fd-green);
+  border-radius: var(--fd-radius-md);
+  box-shadow: var(--fd-shadow-sm);
+}
+
+.fd-real-schedule header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.fd-real-schedule header span {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--fd-text);
+  font-size: 13px;
+  font-weight: 880;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.fd-real-badge {
+  background: var(--fd-green);
+}
+
+.fd-real-schedule header small {
+  color: var(--fd-text-muted);
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.fd-real-schedule-track {
+  display: grid;
+  grid-auto-columns: minmax(220px, 1fr);
+  grid-auto-flow: column;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x mandatory;
+}
+
+.fd-real-schedule-card {
+  display: grid;
+  gap: 8px;
+  align-content: space-between;
+  min-height: 130px;
+  padding: 12px;
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-surface-line);
+  border-radius: var(--fd-radius-md);
+  scroll-snap-align: start;
+}
+
+.fd-real-schedule-league {
+  color: var(--fd-text-muted);
+  font-size: 10px;
+  font-weight: 880;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.fd-real-schedule-matchup {
+  display: grid;
+  gap: 4px;
+}
+
+.fd-real-schedule-team {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.fd-real-schedule-team img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.fd-real-schedule-mono {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: var(--fd-text-muted);
+  background: var(--fd-surface-alt);
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 880;
+}
+
+.fd-real-schedule-team strong {
+  color: var(--fd-text);
+  font-size: 13px;
+  font-weight: 820;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fd-real-schedule-team b {
+  color: var(--fd-text);
+  font-size: 14px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-real-schedule-status {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 8px;
+  color: var(--fd-text);
+  background: var(--fd-surface-alt);
+  border: 1px solid var(--fd-surface-line);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 820;
+}
+
+.fd-real-schedule-status.is-live {
+  color: var(--fd-text-inverse);
+  background: var(--fd-red);
+  border-color: var(--fd-red);
+}
+
 /* =========================================================================
    NEXT-LEVEL POLISH
    ========================================================================= */

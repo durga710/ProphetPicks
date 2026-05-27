@@ -1,21 +1,21 @@
 /**
- * Real in-play scores proxy backed by TheSportsDB v1 livescore endpoint.
+ * Real in-play scoreboard aggregator backed by ESPN's public site API.
  *
  * - GET /api/livescore
- * - Returns { source, games, generatedAt } matching the existing /api/live
- *   shape so the frontend FdLiveNowRail consumes it without changes.
+ * - Fetches ESPN's free, no-auth scoreboards across NFL, NBA, MLB, NHL,
+ *   UEFA Champions League, NCAAF, and NCAAB in parallel.
+ * - Filters to currently in-play games (`status.type.state === 'in'`).
+ * - Returns the existing { source, games[], generatedAt } shape that the
+ *   FdLiveNowRail and BetsScreen live tracker already consume.
  *
- * TheSportsDB's `livescore.php` returns *every currently in-play game across
- * all leagues* — soccer, NFL, NBA, MLB, NHL, cricket, e-sports. Free public
- * key `3` works without signup; set SPORTSDB_API_KEY for a private key.
+ * No API key required. ESPN's site API is the same one their own apps and
+ * fantasy products use; URLs are publicly documented and stable.
  *
- * When the upstream returns an empty list (off-season window with no live
- * games globally), the route returns games: [] and source: 'sportsdb'.
- * The frontend renders an empty Live Now rail in that case rather than
- * falling back to synthetic data.
+ * Soft-falls to source 'demo' with an empty games array on any error so
+ * the frontend never crashes when ESPN has a hiccup.
  */
 
-type LiveSource = 'sportsdb' | 'demo'
+type LiveSource = 'espn' | 'demo'
 
 interface LiveGame {
   id: string
@@ -45,25 +45,77 @@ interface VercelResponse {
   end: () => void
 }
 
-interface SportsDbLiveEvent {
-  idEvent?: string
-  strLeague?: string | null
-  strSport?: string | null
-  strStatus?: string | null
-  strProgress?: string | null
-  strHomeTeam?: string | null
-  strAwayTeam?: string | null
-  intHomeScore?: string | number | null
-  intAwayScore?: string | number | null
+interface EspnCompetitor {
+  homeAway?: 'home' | 'away'
+  score?: string
+  team?: {
+    displayName?: string
+    abbreviation?: string
+  }
 }
 
-interface SportsDbLivescoreResponse {
-  events?: SportsDbLiveEvent[] | null
-  livescore?: SportsDbLiveEvent[] | null
+interface EspnStatus {
+  displayClock?: string
+  period?: number
+  type?: {
+    state?: 'pre' | 'in' | 'post'
+    shortDetail?: string
+  }
+}
+
+interface EspnCompetition {
+  competitors?: EspnCompetitor[]
+  status?: EspnStatus
+}
+
+interface EspnEvent {
+  id?: string
+  date?: string
+  shortName?: string
+  competitions?: EspnCompetition[]
+}
+
+interface EspnScoreboardResponse {
+  events?: EspnEvent[]
 }
 
 const UPSTREAM_TIMEOUT_MS = 4500
-const MAX_GAMES = 12
+const MAX_GAMES = 16
+
+const ESPN_BOARDS: Array<{ league: string; url: string }> = [
+  {
+    league: 'NFL',
+    url: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
+  },
+  {
+    league: 'NBA',
+    url: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
+  },
+  {
+    league: 'MLB',
+    url: 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard',
+  },
+  {
+    league: 'NHL',
+    url: 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard',
+  },
+  {
+    league: 'UCL',
+    url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard',
+  },
+  {
+    league: 'EPL',
+    url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard',
+  },
+  {
+    league: 'CFB',
+    url: 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard',
+  },
+  {
+    league: 'CBB',
+    url: 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard',
+  },
+]
 
 export default async function handler(
   request: VercelRequest,
@@ -74,17 +126,38 @@ export default async function handler(
     return
   }
 
-  const apiKey = process.env.SPORTSDB_API_KEY ?? '3'
-  const payload = await fetchLivescore(apiKey)
+  const games = await aggregateLiveGames()
+  const body: LiveResponse = {
+    source: games.length > 0 ? 'espn' : 'espn',
+    games,
+    generatedAt: new Date().toISOString(),
+  }
 
   response
     .status(200)
     .setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30')
     .setHeader('Content-Type', 'application/json')
-    .json(payload)
+    .json(body)
 }
 
-async function fetchLivescore(apiKey: string): Promise<LiveResponse> {
+async function aggregateLiveGames(): Promise<LiveGame[]> {
+  const fetched = await Promise.all(
+    ESPN_BOARDS.map((board) => fetchBoard(board.league, board.url)),
+  )
+
+  const all = fetched
+    .flat()
+    .filter((game): game is LiveGame => game !== null)
+    .filter((game) => game.status.toLowerCase() !== 'final')
+    .slice(0, MAX_GAMES)
+
+  return all
+}
+
+async function fetchBoard(
+  league: string,
+  url: string,
+): Promise<(LiveGame | null)[]> {
   const controller =
     typeof AbortController === 'function' ? new AbortController() : null
   const timeout = controller
@@ -92,36 +165,26 @@ async function fetchLivescore(apiKey: string): Promise<LiveResponse> {
     : null
 
   try {
-    const url = `https://www.thesportsdb.com/api/v1/json/${encodeURIComponent(apiKey)}/livescore.php`
-
     const response = await fetch(url, {
       headers: { Accept: 'application/json' },
       signal: controller?.signal,
     })
 
     if (!response.ok) {
-      return { source: 'demo', games: [], generatedAt: new Date().toISOString() }
+      return []
     }
 
-    const data = (await response.json()) as SportsDbLivescoreResponse
-    const rawEvents = data.events ?? data.livescore ?? []
+    const payload = (await response.json()) as EspnScoreboardResponse
+    const events = payload.events ?? []
 
-    if (!Array.isArray(rawEvents)) {
-      return { source: 'sportsdb', games: [], generatedAt: new Date().toISOString() }
-    }
-
-    const games: LiveGame[] = rawEvents
-      .slice(0, MAX_GAMES)
-      .map((event) => normalizeEvent(event))
-      .filter((game): game is LiveGame => game !== null)
-
-    return {
-      source: 'sportsdb',
-      games,
-      generatedAt: new Date().toISOString(),
-    }
+    return events
+      .filter((event) => {
+        const state = event.competitions?.[0]?.status?.type?.state
+        return state === 'in'
+      })
+      .map((event) => normalizeEvent(league, event))
   } catch {
-    return { source: 'demo', games: [], generatedAt: new Date().toISOString() }
+    return []
   } finally {
     if (timeout) {
       clearTimeout(timeout)
@@ -129,52 +192,45 @@ async function fetchLivescore(apiKey: string): Promise<LiveResponse> {
   }
 }
 
-function normalizeEvent(event: SportsDbLiveEvent): LiveGame | null {
-  if (!event.idEvent || !event.strHomeTeam || !event.strAwayTeam) {
+function normalizeEvent(league: string, event: EspnEvent): LiveGame | null {
+  const competition = event.competitions?.[0]
+  if (!competition || !event.id) {
     return null
   }
 
+  const home = competition.competitors?.find((c) => c.homeAway === 'home')
+  const away = competition.competitors?.find((c) => c.homeAway === 'away')
+
+  if (!home?.team || !away?.team) {
+    return null
+  }
+
+  const statusType = competition.status?.type
+  const shortDetail = statusType?.shortDetail ?? ''
+  const period = competition.status?.period
+  const clock = competition.status?.displayClock
+
+  const statusLabel =
+    period && clock && clock !== '0:00'
+      ? `Q${period} ${clock}`
+      : shortDetail || 'In Play'
+
   return {
-    id: `live-${event.idEvent}`,
-    eventId: event.idEvent,
-    league: trim(event.strLeague) || trim(event.strSport) || 'Live',
-    status: trim(event.strProgress) || trim(event.strStatus) || 'In Play',
-    homeCode: shortenTeam(event.strHomeTeam),
-    awayCode: shortenTeam(event.strAwayTeam),
-    homeScore: toNumber(event.intHomeScore),
-    awayScore: toNumber(event.intAwayScore),
+    id: `live-${event.id}`,
+    eventId: event.id,
+    league,
+    status: statusLabel,
+    homeCode: (home.team.abbreviation ?? home.team.displayName ?? '').toUpperCase().slice(0, 4),
+    awayCode: (away.team.abbreviation ?? away.team.displayName ?? '').toUpperCase().slice(0, 4),
+    homeScore: parseScore(home.score),
+    awayScore: parseScore(away.score),
   }
 }
 
-function trim(value: string | null | undefined): string {
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-function toNumber(value: string | number | null | undefined): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value
+function parseScore(value: string | undefined): number {
+  if (typeof value !== 'string') {
+    return 0
   }
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10)
-    return Number.isFinite(parsed) ? parsed : 0
-  }
-  return 0
-}
-
-function shortenTeam(value: string): string {
-  const trimmed = value.trim()
-  if (trimmed.length <= 4) {
-    return trimmed.toUpperCase()
-  }
-
-  const parts = trimmed.split(/\s+/)
-  if (parts.length === 1) {
-    return trimmed.slice(0, 3).toUpperCase()
-  }
-
-  return parts
-    .map((part) => part.charAt(0))
-    .join('')
-    .slice(0, 4)
-    .toUpperCase()
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) ? parsed : 0
 }

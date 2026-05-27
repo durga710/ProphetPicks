@@ -54,9 +54,11 @@ import {
   loadBets,
   loadLiveState,
   loadSavedSlips,
+  loadSchedule,
   loadTeamLogo,
   saveBet,
   saveSlip,
+  type ScheduleGame,
 } from '../data/providers/persistence'
 
 type Screen =
@@ -684,6 +686,7 @@ export function LegacyBetfairApp() {
                 eventCount={activeEvents.length}
                 events={activeEvents}
               />
+              <FdRealScheduleRail sport={activeSport} />
               <FdFeaturedHero sport={activeSport} onAddSlipItem={addSlipItem} />
               <FdPromoStrip sport={activeSport} />
               <FdBoostedOddsRail
@@ -2828,6 +2831,114 @@ function useWindowWidth(): number {
   return width
 }
 
+// ----- Today's Real Games rail (ESPN) -----
+function FdRealScheduleRail({ sport }: { sport: SportKey }) {
+  // Key the state by sport so switching sports drops the stale list
+  // synchronously (rather than via a setState-in-effect that lint dislikes).
+  const [state, setState] = useState<{
+    sport: SportKey
+    games: ScheduleGame[]
+  }>({ sport, games: [] })
+
+  useEffect(() => {
+    if (!import.meta.env.PROD) {
+      return
+    }
+    let cancelled = false
+
+    loadSchedule(sport).then((response) => {
+      if (cancelled || !response) {
+        return
+      }
+      setState({ sport, games: response.games })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [sport])
+
+  if (!import.meta.env.PROD) {
+    return null
+  }
+  const games = state.sport === sport ? state.games : []
+  if (games.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="fd-real-schedule" aria-label="Today's real games">
+      <header>
+        <span>
+          <em className="fd-live-pill fd-real-badge">
+            <span className="fd-live-dot" aria-hidden="true" />
+            Real
+          </em>
+          Today's games
+        </span>
+        <small>Live from ESPN · {games.length} on the board</small>
+      </header>
+      <div className="fd-real-schedule-track">
+        {games.map((game) => {
+          const kickoff = new Date(game.startsAt)
+          const dateLabel = Number.isFinite(kickoff.getTime())
+            ? kickoff.toLocaleTimeString([], {
+                weekday: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : game.statusDetail
+          const stateLabel =
+            game.state === 'in'
+              ? game.statusDetail || 'In Play'
+              : game.state === 'post'
+                ? game.statusDetail || 'Final'
+                : dateLabel || game.statusDetail
+          const isLive = game.state === 'in'
+
+          return (
+            <article className="fd-real-schedule-card" key={game.id}>
+              <span className="fd-real-schedule-league">{game.league}</span>
+              <div className="fd-real-schedule-matchup">
+                <FdRealTeamLine team={game.away} />
+                <FdRealTeamLine team={game.home} />
+              </div>
+              <span className={`fd-real-schedule-status ${isLive ? 'is-live' : ''}`}>
+                {isLive && <span className="fd-live-dot" aria-hidden="true" />}
+                {stateLabel}
+              </span>
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function FdRealTeamLine({ team }: { team: ScheduleGame['home'] }) {
+  return (
+    <div className="fd-real-schedule-team">
+      {team.logoUrl ? (
+        <img
+          src={team.logoUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={(event) => {
+            event.currentTarget.style.display = 'none'
+          }}
+        />
+      ) : (
+        <span className="fd-real-schedule-mono" aria-hidden="true">
+          {team.code.slice(0, 3)}
+        </span>
+      )}
+      <strong>{team.name}</strong>
+      {team.score !== null && <b>{team.score}</b>}
+    </div>
+  )
+}
+
 // ----- Featured Pick of the Day -----
 type FeaturedPickConfig = {
   eventId: string
@@ -4052,7 +4163,7 @@ function FdLiveNowRail({
     let source: EventSource | null = null
 
     function applySnapshot(snapshot: {
-      source: 'demo' | 'sportradar' | 'odds-api' | 'sportsdb'
+      source: 'demo' | 'sportradar' | 'odds-api' | 'sportsdb' | 'espn'
       games: LiveGame[]
     }): void {
       if (cancelled) {
@@ -4066,7 +4177,9 @@ function FdLiveNowRail({
           ? 'Server demo state'
           : snapshot.source === 'sportsdb'
             ? 'Live feed: TheSportsDB'
-            : `Live feed: ${snapshot.source}`,
+            : snapshot.source === 'espn'
+              ? 'Live feed: ESPN scoreboard'
+              : `Live feed: ${snapshot.source}`,
       )
     }
 
