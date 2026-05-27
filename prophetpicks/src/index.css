@@ -4275,3 +4275,569 @@ textarea:focus {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* =========================================================================
+   DENSITY PASS — tighten everything, add motion
+   ========================================================================= */
+
+/* Shell + main column padding */
+.legacy-shell-grid {
+  gap: 12px;
+  padding: 12px 0 22px;
+}
+
+.legacy-topbar {
+  min-height: 56px;
+}
+
+.legacy-nav {
+  min-height: 38px;
+}
+
+.legacy-nav button {
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* Rails — uniform compact spacing */
+.fd-real-schedule,
+.fd-hero,
+.fd-promo-strip,
+.fd-boosted-rail,
+.fd-trending-rail,
+.fd-popular-parlays,
+.fd-live-rail,
+.legacy-odds-status,
+.fd-sport-hub {
+  margin-bottom: 8px;
+}
+
+.fd-real-schedule,
+.fd-boosted-rail,
+.fd-trending-rail,
+.fd-popular-parlays,
+.fd-live-rail {
+  padding: 10px 12px;
+  gap: 6px;
+}
+
+.fd-sport-hub {
+  padding: 10px 14px;
+}
+
+.fd-hero {
+  padding: 14px 18px;
+}
+
+.fd-hero header,
+.fd-hero-body p,
+.fd-hero-body ul {
+  margin: 0;
+}
+
+.fd-hero-body {
+  gap: 6px;
+}
+
+.fd-hero-body h2 {
+  font-size: clamp(18px, 2.1vw, 22px);
+}
+
+.fd-hero-body p {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.fd-hero-body ul {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.fd-hero-pick {
+  padding: 10px;
+  gap: 8px;
+}
+
+/* Track gaps */
+.fd-real-schedule-track,
+.fd-boosted-track,
+.fd-trending-track,
+.fd-live-track,
+.fd-promo-strip {
+  gap: 6px;
+}
+
+.fd-parlay-grid {
+  gap: 6px;
+}
+
+/* Smaller card mins so more fit per row */
+.fd-real-schedule-track {
+  grid-auto-columns: minmax(180px, 1fr);
+}
+
+.fd-boosted-track {
+  grid-auto-columns: minmax(168px, 1fr);
+}
+
+.fd-trending-track {
+  grid-auto-columns: minmax(190px, 1fr);
+}
+
+.fd-live-track {
+  grid-auto-columns: minmax(190px, 1fr);
+}
+
+.fd-parlay-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.fd-promo-strip {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+/* Smaller card heights + padding */
+.fd-real-schedule-card,
+.fd-boosted-card,
+.fd-trending-card,
+.fd-live-card {
+  min-height: 104px;
+  padding: 8px 10px;
+  gap: 6px;
+}
+
+.fd-parlay-card {
+  padding: 10px;
+  gap: 6px;
+}
+
+.fd-promo-card {
+  padding: 10px 12px;
+  gap: 2px;
+}
+
+.fd-promo-card strong {
+  font-size: 13px;
+}
+
+.fd-promo-card b {
+  font-size: 12px;
+}
+
+.fd-promo-card span {
+  font-size: 9px;
+}
+
+/* Live + trending fine-tuning */
+.fd-live-card,
+.fd-trending-card {
+  min-height: 104px;
+}
+
+.fd-live-score b {
+  font-size: 16px;
+}
+
+.fd-live-bet {
+  min-height: 26px;
+  font-size: 11px;
+}
+
+.fd-trending-share {
+  padding: 2px 6px;
+}
+
+.fd-trending-share strong {
+  font-size: 12px;
+}
+
+.fd-trending-share em {
+  font-size: 9px;
+}
+
+.fd-trending-caption {
+  font-size: 12px;
+}
+
+.fd-trending-meta b {
+  font-size: 14px;
+}
+
+/* Boosted prices tighter */
+.fd-boosted-card span {
+  font-size: 11px;
+}
+
+.fd-boosted-card s {
+  font-size: 12px;
+}
+
+.fd-boosted-card b {
+  font-size: 16px;
+}
+
+.fd-boosted-card small {
+  padding: 1px 6px;
+  font-size: 9px;
+}
+
+/* Parlay card list smaller */
+.fd-parlay-card ul {
+  font-size: 11px;
+  gap: 2px;
+}
+
+.fd-parlay-card header strong {
+  font-size: 12px;
+}
+
+.fd-parlay-card header small {
+  font-size: 10px;
+}
+
+.fd-parlay-card footer button {
+  min-height: 30px;
+  font-size: 11px;
+}
+
+.fd-parlay-card footer b {
+  font-size: 14px;
+}
+
+/* Sport hub tighter */
+.fd-sport-hub-body strong {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.fd-sport-hub-featured {
+  min-width: 180px;
+  padding: 8px 10px;
+}
+
+.fd-sport-hub-featured strong {
+  font-size: 13px;
+}
+
+/* Schedule rail card compact */
+.fd-real-schedule-card {
+  min-height: 110px;
+}
+
+.fd-real-schedule-team strong {
+  font-size: 12px;
+}
+
+.fd-real-schedule-team img,
+.fd-real-schedule-mono {
+  width: 18px;
+  height: 18px;
+}
+
+.fd-real-schedule-status {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
+/* Event rows tighter */
+.fd-row {
+  padding: 8px 12px;
+  gap: 6px;
+}
+
+.fd-row-team {
+  font-size: 12px;
+}
+
+.fd-row-team .legacy-team-crest {
+  width: 20px;
+  height: 20px;
+}
+
+.fd-row-time {
+  font-size: 10px;
+}
+
+.fd-row-more,
+.fd-row-stats {
+  font-size: 10px;
+}
+
+.fd-odd-btn {
+  min-height: 34px;
+  padding: 4px 8px;
+}
+
+.fd-odd-btn .fd-line {
+  font-size: 10px;
+}
+
+.fd-odd-btn .fd-price {
+  font-size: 12px;
+}
+
+.fd-row-market-label {
+  font-size: 9px;
+}
+
+/* Group strip tighter */
+.legacy-group-strip.compact button {
+  min-height: 28px;
+  font-size: 11px;
+}
+
+/* League pulldown tighter */
+.legacy-league-pulldown {
+  min-height: 48px;
+  padding: 6px 12px;
+}
+
+/* Date heading tighter */
+.legacy-date-heading {
+  min-height: 28px;
+  font-size: 11px;
+}
+
+/* Slip rail compact */
+.fd-slip-rail-body {
+  padding: 8px;
+  gap: 6px;
+}
+
+.fd-slip-rail-group {
+  padding: 6px;
+  gap: 4px;
+}
+
+.fd-slip-rail footer {
+  padding: 10px;
+}
+
+.fd-slip-rail header {
+  padding: 10px 12px;
+}
+
+/* Editor note inline tighter */
+.fd-editor-note {
+  padding: 6px 12px;
+}
+
+.fd-editor-note p {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.fd-editor-note span {
+  font-size: 9px;
+}
+
+/* Sport rail tighter */
+.legacy-side-rail {
+  padding: 8px;
+  gap: 8px;
+  top: 100px;
+}
+
+.legacy-sport-rail button {
+  min-height: 30px;
+  font-size: 12px;
+  padding: 0 8px;
+  gap: 8px;
+}
+
+/* =========================================================================
+   ENTRANCE + LIFE
+   ========================================================================= */
+
+@keyframes fd-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fd-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fd-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes fd-score-pop {
+  0% {
+    transform: scale(1);
+    color: var(--fd-green);
+  }
+  40% {
+    transform: scale(1.2);
+    color: var(--fd-green);
+  }
+  100% {
+    transform: scale(1);
+    color: var(--fd-text);
+  }
+}
+
+/* Stagger entrance on rail cards */
+.fd-real-schedule-card,
+.fd-boosted-card,
+.fd-trending-card,
+.fd-live-card,
+.fd-parlay-card,
+.fd-promo-card {
+  animation: fd-fade-in-up 380ms ease both;
+}
+
+.fd-real-schedule-track > *:nth-child(1) { animation-delay: 20ms; }
+.fd-real-schedule-track > *:nth-child(2) { animation-delay: 60ms; }
+.fd-real-schedule-track > *:nth-child(3) { animation-delay: 100ms; }
+.fd-real-schedule-track > *:nth-child(4) { animation-delay: 140ms; }
+.fd-real-schedule-track > *:nth-child(5) { animation-delay: 180ms; }
+.fd-real-schedule-track > *:nth-child(6) { animation-delay: 220ms; }
+.fd-real-schedule-track > *:nth-child(n+7) { animation-delay: 260ms; }
+
+.fd-boosted-track > *:nth-child(1),
+.fd-trending-track > *:nth-child(1),
+.fd-live-track > *:nth-child(1),
+.fd-parlay-grid > *:nth-child(1),
+.fd-promo-strip > *:nth-child(1) { animation-delay: 30ms; }
+.fd-boosted-track > *:nth-child(2),
+.fd-trending-track > *:nth-child(2),
+.fd-live-track > *:nth-child(2),
+.fd-parlay-grid > *:nth-child(2),
+.fd-promo-strip > *:nth-child(2) { animation-delay: 80ms; }
+.fd-boosted-track > *:nth-child(3),
+.fd-trending-track > *:nth-child(3),
+.fd-live-track > *:nth-child(3),
+.fd-parlay-grid > *:nth-child(3),
+.fd-promo-strip > *:nth-child(3) { animation-delay: 130ms; }
+.fd-boosted-track > *:nth-child(4),
+.fd-trending-track > *:nth-child(4),
+.fd-live-track > *:nth-child(4),
+.fd-parlay-grid > *:nth-child(4) { animation-delay: 180ms; }
+.fd-boosted-track > *:nth-child(n+5),
+.fd-trending-track > *:nth-child(n+5),
+.fd-live-track > *:nth-child(n+5),
+.fd-parlay-grid > *:nth-child(n+5) { animation-delay: 230ms; }
+
+/* Event rows fade in too */
+.fd-row {
+  animation: fd-fade-in-up 320ms ease both;
+}
+
+.legacy-event-list > *:nth-child(1) { animation-delay: 0ms; }
+.legacy-event-list > *:nth-child(2) { animation-delay: 40ms; }
+.legacy-event-list > *:nth-child(3) { animation-delay: 80ms; }
+.legacy-event-list > *:nth-child(4) { animation-delay: 120ms; }
+.legacy-event-list > *:nth-child(5) { animation-delay: 160ms; }
+.legacy-event-list > *:nth-child(n+6) { animation-delay: 200ms; }
+
+/* Live score pop — triggered by React remounting the element via key prop */
+.fd-live-score-cell,
+.fd-real-schedule-team b,
+.fd-bet-live-chip {
+  display: inline-block;
+  animation: fd-score-pop 700ms ease both;
+}
+
+.fd-live-score-cell {
+  display: inline-grid;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--fd-surface-alt);
+  border-radius: var(--fd-radius-sm);
+  color: var(--fd-text);
+  font-size: 13px;
+  font-weight: 880;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Skeleton shimmer */
+.fd-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    var(--fd-surface-alt) 0%,
+    var(--fd-surface-line) 50%,
+    var(--fd-surface-alt) 100%
+  );
+  background-size: 200% 100%;
+  animation: fd-shimmer 1.4s linear infinite;
+  border-radius: var(--fd-radius-sm);
+}
+
+.fd-real-schedule-card.is-skeleton {
+  pointer-events: none;
+}
+
+.fd-real-schedule-card.is-skeleton > * {
+  visibility: hidden;
+}
+
+.fd-real-schedule-card.is-skeleton::before {
+  position: absolute;
+  inset: 8px;
+  content: '';
+  background: linear-gradient(
+    90deg,
+    var(--fd-surface-alt) 0%,
+    var(--fd-surface-line) 50%,
+    var(--fd-surface-alt) 100%
+  );
+  background-size: 200% 100%;
+  animation: fd-shimmer 1.4s linear infinite;
+  border-radius: var(--fd-radius-sm);
+}
+
+/* Promo cross-fade replaces hard swap */
+.fd-promo-card {
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    box-shadow 140ms ease;
+}
+
+/* Sticky pulse on boost prices */
+.fd-boosted-card b {
+  transition: transform 160ms ease;
+}
+
+.fd-boosted-card:hover b {
+  transform: scale(1.08);
+}
+
+/* Smooth scroll for snap tracks */
+.fd-real-schedule-track,
+.fd-boosted-track,
+.fd-trending-track,
+.fd-live-track {
+  scroll-behavior: smooth;
+}
+
+/* Sport rail active gets a subtle bounce on activate */
+.legacy-sport-rail button.active {
+  animation: fd-fade-in 200ms ease both;
+}
+
+/* Tighten section gap inside main */
+.legacy-main {
+  display: grid;
+  gap: 8px;
+}

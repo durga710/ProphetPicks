@@ -1975,11 +1975,13 @@ function BetsScreen({
                     <div className="fd-bet-status">
                       <span>{bet.status}</span>
                       {liveGame && (
-                        <span className="fd-bet-live-chip" aria-label="Live game tracker">
+                        <span
+                          className="fd-bet-live-chip"
+                          aria-label="Live game tracker"
+                          key={`${liveGame.id}-${liveGame.homeScore}-${liveGame.awayScore}`}
+                        >
                           <span className="fd-live-dot" aria-hidden="true" />
-                          {liveGame.league} {liveGame.status} ·{' '}
-                          {liveGame.homeCode} {liveGame.homeScore} —{' '}
-                          {liveGame.awayCode} {liveGame.awayScore}
+                          {`${liveGame.league} ${liveGame.status} · ${liveGame.homeCode} ${liveGame.homeScore} — ${liveGame.awayCode} ${liveGame.awayScore}`}
                         </span>
                       )}
                     </div>
@@ -2838,7 +2840,8 @@ function FdRealScheduleRail({ sport }: { sport: SportKey }) {
   const [state, setState] = useState<{
     sport: SportKey
     games: ScheduleGame[]
-  }>({ sport, games: [] })
+    loaded: boolean
+  }>({ sport, games: [], loaded: false })
 
   useEffect(() => {
     if (!import.meta.env.PROD) {
@@ -2847,10 +2850,14 @@ function FdRealScheduleRail({ sport }: { sport: SportKey }) {
     let cancelled = false
 
     loadSchedule(sport).then((response) => {
-      if (cancelled || !response) {
+      if (cancelled) {
         return
       }
-      setState({ sport, games: response.games })
+      setState({
+        sport,
+        games: response?.games ?? [],
+        loaded: true,
+      })
     })
 
     return () => {
@@ -2861,9 +2868,45 @@ function FdRealScheduleRail({ sport }: { sport: SportKey }) {
   if (!import.meta.env.PROD) {
     return null
   }
-  const games = state.sport === sport ? state.games : []
-  if (games.length === 0) {
+  const stale = state.sport !== sport
+  const games = stale ? [] : state.games
+  const loaded = !stale && state.loaded
+
+  // Show skeleton placeholders while loading; once loaded with zero games,
+  // render nothing (off-season / no data for this sport right now).
+  if (loaded && games.length === 0) {
     return null
+  }
+
+  if (!loaded) {
+    // 3-card shimmer skeleton while ESPN responds.
+    return (
+      <section className="fd-real-schedule" aria-label="Today's real games loading">
+        <header>
+          <span>
+            <em className="fd-live-pill fd-real-badge">
+              <span className="fd-live-dot" aria-hidden="true" />
+              Real
+            </em>
+            Today's games
+          </span>
+          <small>Loading from ESPN…</small>
+        </header>
+        <div className="fd-real-schedule-track">
+          {[0, 1, 2].map((index) => (
+            <article
+              key={`skeleton-${index}`}
+              className="fd-real-schedule-card is-skeleton"
+              aria-hidden="true"
+            >
+              <span className="fd-real-schedule-league">—</span>
+              <div className="fd-real-schedule-matchup" />
+              <span className="fd-real-schedule-status">—</span>
+            </article>
+          ))}
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -4277,8 +4320,18 @@ function FdLiveNowRail({
               {game.league} · {game.status}
             </span>
             <div className="fd-live-score">
-              <span>{`${game.homeCode} ${game.homeScore}`}</span>
-              <span>{`${game.awayCode} ${game.awayScore}`}</span>
+              <span
+                className="fd-live-score-cell"
+                key={`home-${game.homeScore}`}
+              >
+                {`${game.homeCode} ${game.homeScore}`}
+              </span>
+              <span
+                className="fd-live-score-cell"
+                key={`away-${game.awayScore}`}
+              >
+                {`${game.awayCode} ${game.awayScore}`}
+              </span>
             </div>
             <button
               className="fd-live-bet"
