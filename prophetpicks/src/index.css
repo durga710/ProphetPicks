@@ -1894,6 +1894,159 @@ img {
   }
 }
 
+/* ===== FEATURED HERO ===== */
+.fd-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 18px;
+  margin-bottom: 14px;
+  padding: 20px 22px;
+  color: var(--fd-text-inverse);
+  background:
+    radial-gradient(900px 200px at 92% 110%, rgba(20, 147, 255, 0.45), transparent 60%),
+    linear-gradient(135deg, var(--fd-navy) 0%, var(--fd-navy-deep) 100%);
+  border-radius: var(--fd-radius-md);
+  box-shadow: var(--fd-shadow-md);
+}
+
+.fd-hero header {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.fd-hero header span {
+  display: inline-flex;
+  padding: 4px 12px;
+  color: var(--fd-navy);
+  background: var(--fd-text-inverse);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 880;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.fd-hero header small {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
+  font-weight: 720;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.fd-hero-body {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.fd-hero-body h2 {
+  margin: 0;
+  color: var(--fd-text-inverse);
+  font-size: clamp(20px, 2.4vw, 28px);
+  font-weight: 880;
+  line-height: 1.15;
+}
+
+.fd-hero-body p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.fd-hero-body ul {
+  display: grid;
+  gap: 4px;
+  padding-left: 18px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.fd-hero-pick {
+  display: grid;
+  gap: 12px;
+  align-content: space-between;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--fd-radius-md);
+}
+
+.fd-hero-pick > div {
+  display: grid;
+  gap: 4px;
+}
+
+.fd-hero-pick span {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  font-weight: 820;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.fd-hero-pick strong {
+  color: var(--fd-text-inverse);
+  font-size: 15px;
+  font-weight: 880;
+  line-height: 1.25;
+}
+
+.fd-hero-pick em {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 720;
+  font-style: normal;
+}
+
+.fd-hero-pick button {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 16px;
+  color: var(--fd-text-inverse);
+  background: var(--fd-blue);
+  border: 0;
+  border-radius: var(--fd-radius-sm);
+  font-weight: 820;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.fd-hero-pick button:hover {
+  background: var(--fd-blue-hover);
+}
+
+.fd-hero-pick button b {
+  color: var(--fd-text-inverse);
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.fd-hero-pick button span {
+  color: var(--fd-text-inverse);
+  font-size: 13px;
+  font-weight: 820;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+@media (max-width: 720px) {
+  .fd-hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+}
+
 /* ===== BOOSTED ODDS RAIL ===== */
 .fd-boosted-rail {
   display: grid;

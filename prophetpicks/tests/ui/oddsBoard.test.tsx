@@ -19,7 +19,7 @@ describe('ProphetPicks Odds Board', () => {
     expect(
       screen.getByRole('heading', { name: /Odds Board/i }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/Dense sportsbook quotes/i)).toBeInTheDocument()
+    expect(screen.getByText(/Sportsbook lines, all sports/i)).toBeInTheDocument()
   })
 
   it('shows decimal, American, implied probability, movement, source, and updated timestamp on each tile', async () => {

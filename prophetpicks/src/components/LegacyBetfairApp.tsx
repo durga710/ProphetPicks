@@ -453,6 +453,7 @@ export function LegacyBetfairApp() {
         <main className="legacy-main">
           {(screen === 'events' || screen === 'today' || screen === 'odds') && (
             <>
+              <FdFeaturedHero onAddSlipItem={addSlipItem} />
               <FdPromoStrip />
               <FdBoostedOddsRail onAddSlipItem={addSlipItem} />
               <FdLiveNowRail onAddSlipItem={addSlipItem} />
@@ -476,7 +477,7 @@ export function LegacyBetfairApp() {
               groupedEvents={groupedEvents}
               groups={activeSportDefinition.groups}
               title={screen === 'today' ? "Today's Matches" : activeSportDefinition.title}
-              eyebrow={screen === 'today' ? 'Daily board' : 'Dense Sportsbook Board'}
+              eyebrow={screen === 'today' ? 'Live tonight' : "Today's lines"}
               emptyMessage={
                 screen === 'today'
                   ? 'No matches match the current filters. Try another sport or clear search.'
@@ -1094,7 +1095,7 @@ function AccountScreen({
     <section className="legacy-stage" aria-labelledby="account-title">
       <div className="legacy-table-header">
         <div>
-          <p>Personal command center</p>
+          <p>Your account at a glance</p>
           <h1 id="account-title">Account Overview</h1>
         </div>
         <button className="legacy-action-button" type="button" onClick={onOpenLedger}>
@@ -1161,7 +1162,7 @@ function PredictionScreen({
     <section className="legacy-stage legacy-predictions" aria-labelledby="predictions-title">
       <div className="legacy-table-header">
         <div>
-          <p>Ranked Edge Board</p>
+          <p>Editor's picks</p>
           <h1 id="predictions-title">Prophet Picks</h1>
         </div>
         <button
@@ -1175,7 +1176,7 @@ function PredictionScreen({
 
       <div className="legacy-prediction-stats">
         <article>
-          <span>Tracked Picks</span>
+          <span>Picks today</span>
           <strong>{predictions.length}</strong>
         </article>
         <article>
@@ -1185,7 +1186,7 @@ function PredictionScreen({
           </strong>
         </article>
         <article>
-          <span>Avg Edge</span>
+          <span>Avg lean</span>
           <strong>+{averageEdge.toFixed(1)}%</strong>
         </article>
       </div>
@@ -1882,7 +1883,7 @@ function OddsBoardScreen({
   const baseQuotes = useMemo(() => buildOddsQuotes(), [])
   const [quotes, setQuotes] = useState<OddsQuote[]>(baseQuotes)
   const [providerStatus, setProviderStatus] = useState<string>(
-    'Local demo quotes loaded',
+    'Showing demo book prices',
   )
 
   useEffect(() => {
@@ -1949,7 +1950,7 @@ function OddsBoardScreen({
     <section className="legacy-stage legacy-odds-board" aria-labelledby="odds-board-title">
       <div className="legacy-title-row">
         <div>
-          <p>Dense sportsbook quotes</p>
+          <p>Sportsbook lines, all sports</p>
           <h1 id="odds-board-title">Odds Board</h1>
         </div>
         <div className="legacy-search">
@@ -2102,6 +2103,66 @@ function useWindowWidth(): number {
   return width
 }
 
+// ----- Featured Pick of the Day -----
+function FdFeaturedHero({
+  onAddSlipItem,
+}: {
+  onAddSlipItem: (item: LegacySlipItem) => void
+}) {
+  const event = legacyEvents.find((candidate) => candidate.id === 'chiefs-bills')
+
+  if (!event) {
+    return null
+  }
+
+  const market = getMarketsForEvent(event).find((candidate) => candidate.id === 'player-props')
+  const selection = market?.selections.find((option) => option.id === 'qb-passing')
+
+  if (!market || !selection) {
+    return null
+  }
+
+  const american = formatAmericanOdds(decimalToAmericanOdds(selection.odds))
+
+  return (
+    <section className="fd-hero" aria-label="Featured Pick of the Day">
+      <header>
+        <span>Editor's Pick of the Day</span>
+        <small>{event.dateLabel} · {event.time} · {event.venue}</small>
+      </header>
+      <div className="fd-hero-body">
+        <h2>Mahomes goes over his passing yards line tonight</h2>
+        <p>
+          Buffalo has surrendered 250+ pass yards in nine of their last eleven games and now
+          travels cross-country on a short week with both starting safeties banged up. Andy Reid
+          is 14-2 at home off a bye in his career. Patrick is going to throw a lot tonight — it is
+          the easiest spot to attack on the board.
+        </p>
+        <ul>
+          <li>Bills allow 7.4 yards per attempt on the road (28th in the league).</li>
+          <li>Mahomes averages 287 pass yards in home primetime games this year.</li>
+          <li>Game total opened 47.5 and has ticked up to 49 — books expect points.</li>
+        </ul>
+      </div>
+      <div className="fd-hero-pick">
+        <div>
+          <span>The bet</span>
+          <strong>{selection.label}</strong>
+          <em>{market.label} · {event.home} vs {event.away}</em>
+        </div>
+        <button
+          type="button"
+          aria-label={`Add Editor's Pick ${selection.label} at ${formatDecimal(selection.odds)} to slip`}
+          onClick={() => onAddSlipItem({ event, market, selection })}
+        >
+          <b>{american}</b>
+          <span>Add to slip</span>
+        </button>
+      </div>
+    </section>
+  )
+}
+
 // ----- Promo rotator -----
 type PromoSlot = {
   id: string
@@ -2112,13 +2173,55 @@ type PromoSlot = {
 }
 
 const PROMO_SLOTS: PromoSlot[] = [
-  { id: 'boost-1', tone: 'blue', eyebrow: 'Boosted Odds', title: 'Chiefs ML +165 → +200', caption: 'Demo boost' },
-  { id: 'boost-2', tone: 'blue', eyebrow: 'Boosted Odds', title: 'Lakers ML -185 → -150', caption: 'Demo boost' },
-  { id: 'sgp-1', tone: 'navy', eyebrow: 'Same Game Parlay', title: '3-leg SGP, any matchup', caption: 'Build with one tap' },
-  { id: 'sgp-2', tone: 'navy', eyebrow: 'Same Game Parlay', title: 'Soccer goalscorer SGP', caption: 'Combine 3+ legs' },
-  { id: 'pp-1', tone: 'green', eyebrow: 'Prophet Picks', title: 'Top edges today', caption: 'Avg +5.2% edge' },
-  { id: 'pp-2', tone: 'green', eyebrow: 'Prophet Picks', title: 'A-grade picks: 4', caption: 'Tap to build a parlay' },
-  { id: 'pp-3', tone: 'green', eyebrow: 'Prophet Picks', title: 'Best NFL pick: KC ML', caption: '+6.8% edge, Low risk' },
+  {
+    id: 'welcome',
+    tone: 'blue',
+    eyebrow: 'Welcome offer',
+    title: 'Bet $5, get $200 in Bonus Bets',
+    caption: 'New players only. Min $5 first cash wager.',
+  },
+  {
+    id: 'sgp-insurance',
+    tone: 'navy',
+    eyebrow: 'Same Game Parlay Insurance',
+    title: 'Get your stake back if one leg busts',
+    caption: '4+ leg SGPs on any NFL or NBA game.',
+  },
+  {
+    id: 'no-sweat-nfl',
+    tone: 'navy',
+    eyebrow: 'Daily No-Sweat Bet',
+    title: 'Up to $10 back on your first NFL bet',
+    caption: 'Refunded as a Bonus Bet if your pick loses.',
+  },
+  {
+    id: 'refer',
+    tone: 'green',
+    eyebrow: 'Refer & earn',
+    title: 'Refer a friend, get $50',
+    caption: 'When they place their first $20 cash bet.',
+  },
+  {
+    id: 'profit-boost',
+    tone: 'blue',
+    eyebrow: 'Profit boost',
+    title: '20% boost token, your call',
+    caption: 'One-time use on any parlay this week.',
+  },
+  {
+    id: 'loyalty',
+    tone: 'navy',
+    eyebrow: 'ProphetPicks Rewards',
+    title: 'Earn $5 for every $250 wagered',
+    caption: 'Stack rewards across every sport you play.',
+  },
+  {
+    id: 'editor-pick',
+    tone: 'green',
+    eyebrow: "Editor's pick of the day",
+    title: 'Mahomes O 1.5 passing TDs',
+    caption: 'Bills D has allowed 2+ in 9 of their last 11.',
+  },
 ]
 
 function useRotatingPromos(slotCount = 3, intervalMs = 6000): PromoSlot[] {
@@ -2168,11 +2271,46 @@ type BoostedOddsRow = {
 }
 
 const BOOSTED_ODDS: BoostedOddsRow[] = [
-  { id: 'boost-chiefs', eventId: 'chiefs-bills', marketId: 'moneyline', label: 'KC Chiefs boost', originalDecimal: 1.74, boostedDecimal: 2.0 },
-  { id: 'boost-arsenal', eventId: 'arsenal-barcelona', marketId: 'match-odds', label: 'Gunners boost', originalDecimal: 4.0, boostedDecimal: 4.75 },
-  { id: 'boost-lakers', eventId: 'lakers-celtics', marketId: 'moneyline', label: 'Purple & Gold boost', originalDecimal: 1.82, boostedDecimal: 2.2 },
-  { id: 'boost-leafs', eventId: 'leafs-bruins', marketId: 'moneyline', label: 'Leafs boost', originalDecimal: 1.8, boostedDecimal: 2.1 },
-  { id: 'boost-alcaraz', eventId: 'alcaraz-sinner', marketId: 'winner', label: 'Carlos boost', originalDecimal: 1.84, boostedDecimal: 2.1 },
+  {
+    id: 'boost-chiefs',
+    eventId: 'chiefs-bills',
+    marketId: 'moneyline',
+    label: 'Chiefs to win + Mahomes 250+ pass yds',
+    originalDecimal: 1.74,
+    boostedDecimal: 2.0,
+  },
+  {
+    id: 'boost-arsenal',
+    eventId: 'arsenal-barcelona',
+    marketId: 'match-odds',
+    label: 'Gunners to win + BTTS',
+    originalDecimal: 4.0,
+    boostedDecimal: 4.75,
+  },
+  {
+    id: 'boost-lakers',
+    eventId: 'lakers-celtics',
+    marketId: 'moneyline',
+    label: 'Lakers in regulation',
+    originalDecimal: 1.82,
+    boostedDecimal: 2.2,
+  },
+  {
+    id: 'boost-leafs',
+    eventId: 'leafs-bruins',
+    marketId: 'moneyline',
+    label: 'Leafs to win + 3+ team goals',
+    originalDecimal: 1.8,
+    boostedDecimal: 2.1,
+  },
+  {
+    id: 'boost-alcaraz',
+    eventId: 'alcaraz-sinner',
+    marketId: 'winner',
+    label: 'Alcaraz in straight sets',
+    originalDecimal: 1.84,
+    boostedDecimal: 2.1,
+  },
 ]
 
 function FdBoostedOddsRail({

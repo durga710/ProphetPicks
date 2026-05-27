@@ -7,7 +7,7 @@ test.describe('ProphetPicks Odds Board', () => {
     await page.getByRole('button', { name: /Odds Board/i }).click()
 
     await expect(page.getByRole('heading', { name: /Odds Board/i })).toBeVisible()
-    await expect(page.getByText(/Dense sportsbook quotes/i)).toBeVisible()
+    await expect(page.getByText(/Sportsbook lines, all sports/i)).toBeVisible()
 
     const sampleTile = page
       .getByRole('button', { name: /^Add Arsenal at decimal 4 to slip/i })

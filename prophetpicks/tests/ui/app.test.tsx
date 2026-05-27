@@ -354,7 +354,7 @@ describe('ProphetPicks imported Betfair market experience', () => {
     await user.click(screen.getByRole('button', { name: /Prophet Picks/i }))
 
     expect(screen.getByRole('heading', { name: /Prophet Picks/i })).toBeInTheDocument()
-    expect(screen.getByText(/Ranked Edge Board/i)).toBeInTheDocument()
+    expect(screen.getByText(/Editor's picks/i)).toBeInTheDocument()
     expect(screen.getByText(/Kansas City Chiefs VS Buffalo Bills/i)).toBeInTheDocument()
     expect(screen.getAllByText(/A Confidence/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/\+6.8% edge/i)).toBeInTheDocument()

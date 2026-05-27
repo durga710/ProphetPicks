@@ -236,7 +236,7 @@ test.describe('ProphetPicks sportsbook', () => {
 
     await page.getByRole('button', { name: /Prophet Picks/i }).click()
     await expect(page.getByRole('heading', { name: /Prophet Picks/i })).toBeVisible()
-    await expect(page.getByText(/Ranked Edge Board/i)).toBeVisible()
+    await expect(page.getByText(/Editor's picks/i)).toBeVisible()
     await expect(page.getByText(/Kansas City Chiefs VS Buffalo Bills/i)).toBeVisible()
 
     await page.getByLabel(/Sport/i).selectOption('NFL')

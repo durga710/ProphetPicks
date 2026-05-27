@@ -326,7 +326,7 @@ export const legacyPredictions: LegacyPrediction[] = [
     'A',
     6.8,
     'Low',
-    'Home field, rest edge, and explosive rate all point to Kansas City outperforming the market.',
+    'Mahomes off the bye at Arrowhead in primetime is about as good a spot as you can buy. Buffalo travels cross-country on a short week and was already down two starting safeties last drill. Take the Chiefs to control this one start-to-finish.',
   ),
   prediction(
     'pick-lakers-moneyline',
@@ -337,7 +337,7 @@ export const legacyPredictions: LegacyPrediction[] = [
     'A',
     5.9,
     'Medium',
-    'Los Angeles projects better in half-court shot quality with a favorable late-game free throw profile.',
+    'LeBron and AD are both fully healthy out of the break, and Boston is on the back end of a road back-to-back. Crypto.com gets loud after halftime and the Lakers shoot the lights out at home this year. Side with LA.',
   ),
   prediction(
     'pick-arsenal-moneyline',
@@ -348,7 +348,7 @@ export const legacyPredictions: LegacyPrediction[] = [
     'A',
     4.7,
     'Medium',
-    'Arsenal carries the top pressure differential and a set-piece edge against this matchup price.',
+    'Arsenal has not dropped a point at the Emirates in this competition all year, and Barcelona is leaning on a patchwork back four with two centerbacks suspended. Expect the Gunners to grab the early goal and squeeze the second half.',
   ),
   prediction(
     'pick-leafs-moneyline',
@@ -359,7 +359,7 @@ export const legacyPredictions: LegacyPrediction[] = [
     'B',
     3.9,
     'Medium',
-    'Toronto grades well in power-play creation and first-period shot share.',
+    'Auston Matthews is on a five-game point streak and Boston is playing its third in four nights. Toronto wins the first-period shot share by a country mile when these two get together. Lean Leafs at home.',
   ),
   prediction(
     'pick-yankees-moneyline',
@@ -370,7 +370,7 @@ export const legacyPredictions: LegacyPrediction[] = [
     'B',
     3.4,
     'High',
-    'The Yankees model edge is tied to starter strikeout projection, which carries more variance.',
+    'Cole takes the mound off a bullpen day and the Dodgers lineup has gone ice cold against righties this road trip. Wind is blowing in at the Stadium tonight too. It is the right side but not a hammer.',
   ),
   prediction(
     'pick-alcaraz-winner',
@@ -381,7 +381,7 @@ export const legacyPredictions: LegacyPrediction[] = [
     'C',
     2.8,
     'High',
-    'Alcaraz has surface momentum, but the hold-break profile is tight enough to keep risk elevated.',
+    'Carlos has won four of their last five on clay and Sinner has been managing a wrist niggle since Madrid. Alcaraz served huge in his quarter. Risk is high because Jannik is still Jannik on this surface, but it is the right side.',
   ),
 ]
 
